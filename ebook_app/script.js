@@ -86,6 +86,7 @@ window.library = {
         this.applyTheme();
         this.setViewMode(this.viewMode, { silent: true });
         this.showUserView();
+        this.updateFolderUi();
 
         // Auto-load the catalogue that index.html pulled in as a <script>.
         const auto = window.LIBRARY_DATA;
@@ -139,7 +140,123 @@ window.library = {
         }
     },
 
-    // --- unsaved-changes draft -------------------------------------------
+    // --- optional folder access (Chrome/Edge) -----------------------------
+    /*
+     * With a directory handle for the library folder the app can do the two
+     * things a plain page cannot: copy a chosen ebook into books/ itself, and
+     * write data.js without a save dialog. Everything here is additive — without
+     * a handle (Firefox, Safari, or permission not granted) the app behaves
+     * exactly as before: you copy files yourself and press Save.
+     */
+    folderHandle: null,
+
+    get folderApiAvailable() { return 'showDirectoryPicker' in window; },
+    get folderReady() { return !!this.folderHandle; },
+
+    async grantFolderAccess() {
+        if (!this.folderApiAvailable) {
+            alert('This browser has no folder access API (Chrome or Edge do). ' +
+                  'The manual way keeps working: copy files into books/ yourself and press Save.');
+            return false;
+        }
+        try {
+            const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+
+            // A quick sanity check that this really is the library folder.
+            try {
+                await handle.getDirectoryHandle('ebook_app');
+            } catch {
+                if (!confirm('That folder has no "ebook_app" inside — is it really the ' +
+                             'ebook-library folder? Choose "Cancel" to pick another one.')) {
+                    return false;
+                }
+            }
+
+            this.folderHandle = handle;
+            this.updateFolderUi();
+            console.log('Folder access granted:', handle.name);
+
+            // If work is already waiting to be saved, put it on disk right away.
+            if (this.dirty) await this.autoSave();
+            return true;
+        } catch (error) {
+            if (error.name !== 'AbortError') console.error('Folder access failed:', error);
+            return false;
+        }
+    },
+
+    /* Make sure we may still write; Chrome can drop the grant between sessions. */
+    async ensureFolderWritable() {
+        if (!this.folderHandle) return false;
+        const opts = { mode: 'readwrite' };
+        if (await this.folderHandle.queryPermission(opts) === 'granted') return true;
+        return await this.folderHandle.requestPermission(opts) === 'granted';
+    },
+
+    /* Write `contents` to <folder>/<...path>/<name>, creating folders as needed. */
+    async writeInto(path, name, contents) {
+        let dir = this.folderHandle;
+        for (const part of path) dir = await dir.getDirectoryHandle(part, { create: true });
+        const fileHandle = await dir.getFileHandle(name, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(contents);
+        await writable.close();
+    },
+
+    /* Copy a File the user picked into books/ or thumbnails/. Returns its name. */
+    async copyIntoLibrary(file, folder) {
+        await this.writeInto([folder], file.name, file);
+        console.log(`Copied "${file.name}" into ${folder}/`);
+        return file.name;
+    },
+
+    /* Silent save straight to ebook_app/data.js. Returns true if it happened. */
+    async autoSave() {
+        if (!this.folderHandle) return false;
+        if (!await this.ensureFolderWritable()) {
+            this.folderHandle = null;
+            this.updateFolderUi();
+            return false;
+        }
+        await this.writeInto(['ebook_app'], 'data.js', this.catalogueSource());
+        this.dirty = false;
+        this.clearDraft();
+        this.hideSaveWarning();
+        this.sourceLabel = `Saved automatically — ${this.books.length} book(s).`;
+        this.showLoadBar(this.sourceLabel, true);
+        return true;
+    },
+
+    /* Record a change: keep the recovery draft, then either save it to disk at
+       once (folder access) or ask the user to save (manual mode). */
+    async persist() {
+        this.markDirty();
+        if (!this.folderHandle) return;
+        try {
+            await this.autoSave();
+        } catch (error) {
+            console.error('Automatic save failed:', error);
+            alert('Could not save automatically — use "Save catalogue" instead.\n' + error.message);
+        }
+    },
+
+    updateFolderUi() {
+        const btn = document.getElementById('folderAccessBtn');
+        const status = document.getElementById('folderStatus');
+
+        if (btn) {
+            btn.style.display = this.folderApiAvailable && !this.folderReady ? '' : 'none';
+        }
+        if (status) {
+            if (this.folderReady) {
+                status.textContent = `Folder access on (${this.folderHandle.name}): books are copied for you and changes save themselves.`;
+            } else if (this.folderApiAvailable) {
+                status.textContent = 'Manual mode: copy files into books/ yourself and press Save. Grant folder access to automate both.';
+            } else {
+                status.textContent = 'Manual mode: copy files into books/ yourself and press Save. (This browser cannot automate it — Chrome or Edge can.)';
+            }
+        }
+    },
 
     readDraft() {
         try {
@@ -249,15 +366,28 @@ window.library = {
         };
     },
 
+    /* The exact text of ebook_app/data.js — used by both the manual save and the
+       automatic one, so the two can never drift apart. */
+    catalogueSource() {
+        return '// Electronic Library catalogue. Loaded automatically by index.html.\n' +
+               '// Generated by the app — edit through the UI and press Save.\n' +
+               'window.LIBRARY_DATA = ' + JSON.stringify(this.snapshot(), null, 2) + ';\n';
+    },
+
     /* Save the catalogue as ebook_app/data.js so the next page load picks it up
        automatically. The JS wrapper is what makes auto-loading possible at all on
        a file:// page (a <script> may be loaded, a fetch() may not). */
     async saveToFile() {
-        const json = JSON.stringify(this.snapshot(), null, 2);
-        const contents =
-            '// Electronic Library catalogue. Loaded automatically by index.html.\n' +
-            '// Generated by the app — edit through the UI and press Save.\n' +
-            'window.LIBRARY_DATA = ' + json + ';\n';
+        // With folder access this needs no dialog at all.
+        if (this.folderHandle) {
+            try {
+                if (await this.autoSave()) return;
+            } catch (error) {
+                console.error('Automatic save failed, falling back to a dialog:', error);
+            }
+        }
+
+        const contents = this.catalogueSource();
 
         // Preferred path: let the user overwrite the real file in place.
         if ('showSaveFilePicker' in window) {
@@ -464,7 +594,7 @@ window.library = {
         }
 
         this.renderBooks();       // repaint so the button state and any active filter follow
-        this.markDirty();
+        this.persist();
     },
 
     /* Fill every filter dropdown from the data actually present. */
@@ -535,21 +665,40 @@ window.library = {
     /* Read the Add Book form. Fields are read by id: the inputs have no "name"
        attributes, so FormData (used by an earlier version) returned nothing and
        every book was stored as "Untitled / Unknown / unknown.pdf". */
-    addBook(event) {
+    async addBook(event) {
         if (event) event.preventDefault();
 
         const value = (id) => (document.getElementById(id)?.value || '').trim();
-        const pickedName = (id) => document.getElementById(id)?.files?.[0]?.name || '';
+        const picked = (id) => document.getElementById(id)?.files?.[0] || null;
 
         const title = value('bookTitle');
         const author = value('bookAuthor');
         const category = value('bookCategory');
-        const fileName = pickedName('bookFile');
-        const thumbName = pickedName('thumbnailFile');
+        const bookFile = picked('bookFile');
+        const thumbFile = picked('thumbnailFile');
 
         if (!title || !author) { alert('Title and Author are required.'); return; }
         if (!category) { alert('Choose a category.'); return; }
-        if (!fileName) { alert('Choose the ebook file (it must already be in books/).'); return; }
+        if (!bookFile) { alert('Choose the ebook file.'); return; }
+
+        const fileName = bookFile.name;
+        const thumbName = thumbFile ? thumbFile.name : '';
+
+        // With folder access the app copies the files where they belong, so you
+        // can pick them from anywhere on the disk. Without it, they must already
+        // sit in books/ and thumbnails/ — only the names are recorded.
+        if (this.folderHandle) {
+            try {
+                if (!await this.ensureFolderWritable()) throw new Error('write permission was refused');
+                await this.copyIntoLibrary(bookFile, 'books');
+                if (thumbFile) await this.copyIntoLibrary(thumbFile, 'thumbnails');
+            } catch (error) {
+                console.error('Copying the files failed:', error);
+                alert('Could not copy the files into the library folder:\n' + error.message +
+                      '\n\nThe book was not added.');
+                return;
+            }
+        }
 
         this.books.push({
             id: String(Date.now()),
@@ -566,7 +715,7 @@ window.library = {
         document.getElementById('addBookForm')?.reset();
         this.loaded = true;              // there is something to save now
         this.renderAll();
-        this.markDirty();
+        await this.persist();
         console.log('Book added:', title);
     },
 
@@ -581,7 +730,7 @@ window.library = {
         });
 
         this.renderAll();
-        this.markDirty();
+        this.persist();
         console.log('Book deleted:', book.title);
     },
 
@@ -607,7 +756,7 @@ window.library = {
         input.value = '';
         this.renderCategories();
         this.updateFilters();
-        this.markDirty();
+        this.persist();
     },
 
     deleteCategory(name) {
@@ -620,7 +769,7 @@ window.library = {
         this.categories = this.categories.filter(c => c !== name);
         this.renderCategories();
         this.updateFilters();
-        this.markDirty();
+        this.persist();
     },
 
     // --- views / preferences ---------------------------------------------
@@ -683,6 +832,7 @@ function addCategory() { window.library.addCategory(); }
 function restoreDraft() { window.library.restoreDraft(); }
 function discardDraft() { window.library.discardDraft(); }
 function exportJson() { window.library.exportJson(); }
+function grantFolderAccess() { window.library.grantFolderAccess(); }
 
 document.addEventListener('DOMContentLoaded', () => {
     window.library.init();

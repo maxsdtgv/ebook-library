@@ -27,12 +27,19 @@ cd ebook-library
 xdg-open index.html          # or just double-click index.html
 ```
 
-1. Put your ebooks in `books/` and their cover images in `thumbnails/`.
-2. Open `index.html` — the catalogue shipped in `ebook_app/data.js` (a two-book
+1. Open `index.html` — the catalogue shipped in `ebook_app/data.js` (a two-book
    demo) appears immediately, no clicks needed.
-3. Add or remove books under **Manage**.
-4. Press **Save catalogue (data.js)** and overwrite `ebook_app/data.js`. It is
-   loaded automatically the next time you open the app.
+2. In **Chrome or Edge**, press **📁 Grant folder access** and select this folder.
+   From then on you can add books picked from anywhere on the disk: the app copies
+   them into `books/`, covers into `thumbnails/`, and saves the catalogue itself
+   after every change.
+3. Without that (Firefox, Safari, or if you skip it) the app works the same way it
+   always did: copy the files into `books/` and `thumbnails/` yourself, add the
+   book under **Manage**, then press **Save catalogue (data.js)** and overwrite
+   `ebook_app/data.js`.
+
+Folder access has to be granted once per session — a page opened from disk cannot
+keep that permission, and only Chromium browsers offer it at all.
 
 ## How the catalogue is stored
 
@@ -48,11 +55,18 @@ window.LIBRARY_DATA = { "books": [ ... ], "categories": [ ... ] };
 `index.html` pulls that in with a `<script>` tag, which is allowed, so the
 library is on screen with no clicks at all.
 
-Saving still needs one click: **no browser API may write to disk on its own.**
-In Chrome or Edge the save dialog lets you overwrite `ebook_app/data.js` in
-place; in other browsers the file lands in your download folder and you move it
-yourself. `Export JSON copy` gives you a plain `data.json` for backups, and
-**Load library** can read either format if you ever need to load one by hand.
+Writing is the other half. No browser API may touch the disk unprompted, so there
+are two modes:
+
+| | Chrome / Edge with folder access | Everything else |
+|---|---|---|
+| Adding a book | pick it anywhere, the app copies it | copy it into `books/` first |
+| Saving the catalogue | automatic, after every change | one click, then move the file |
+| Setup | grant access once per session | nothing |
+
+The catalogue format is identical either way, so a library filled in Chrome opens
+in Firefox and back. `Export JSON copy` gives you a plain `data.json` for backups,
+and **Load library** reads either format if you need to open one by hand.
 
 If a change is ever lost to an accidental reload, the app keeps a draft and
 offers to restore it on the next start.
@@ -77,8 +91,8 @@ never file contents — which is why those two folders have to stay next to
 
 ## Notes
 
-- Adding a book records the *name* of the file you select; copy the file into
-  `books/` yourself, since a browser cannot do it for you.
+- In manual mode adding a book records only the *name* of the file you select, so
+  copy the file into `books/` yourself; with folder access the app does it.
 - Deleting a book removes it from the catalogue only; the file stays on disk.
 - Interface preferences (theme, grid/list) live in `localStorage`. Book data does
   not: only a recovery draft of *unsaved* changes is kept there, and it is

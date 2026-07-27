@@ -11,6 +11,8 @@
         <nav>
             <button onclick="showUserView()">Library</button>
             <button onclick="showAdminView()">Manage</button>
+            <button id="folderAccessBtn" onclick="grantFolderAccess()" style="display: none;"
+                    title="Let the app copy books into books/ and save the catalogue by itself">📁 Grant folder access</button>
             <button id="themeToggle" onclick="toggleTheme()">🌙</button>
         </nav>
 
@@ -74,10 +76,13 @@
     <div id="adminView" class="view">
         <div class="admin-section">
             <h2>Add Book</h2>
+            <p class="hint" id="folderStatus">Manual mode: copy files into books/ yourself and press Save.</p>
             <p class="hint">
-                Copy the ebook into <code>books/</code> and its cover into
-                <code>thumbnails/</code> first. Selecting files below only records
-                their names — a browser cannot copy files for you.
+                Fill in the details and pick the ebook file. In manual mode only the
+                file <em>name</em> is recorded, so the file must already be in
+                <code>books/</code> (and its cover in <code>thumbnails/</code>).
+                With folder access granted, the app copies both for you from
+                wherever you picked them.
             </p>
             <form id="addBookForm">
                 <input type="text" id="bookTitle" placeholder="Title" required>
