@@ -35,6 +35,16 @@ const PREF_THEME = 'ebooklib.theme';
 const PREF_VIEW_MODE = 'ebooklib.viewMode';
 const DRAFT_KEY = 'ebooklib.draft';
 
+/* The four classification lists a book can be tagged with, straight from a card.
+   `active` / `grid` / `inline` are the class names styles.css already defines for
+   the two view modes. */
+const CLASSIFICATIONS = [
+    { key: 'favorites',  icon: '⭐', title: 'Favorite',   active: 'favorited',         grid: 'favorite-btn-grid',   inline: 'favorite-btn-inline' },
+    { key: 'readLater',  icon: '📚', title: 'Read later', active: 'read-later-active', grid: 'read-later-btn-grid', inline: 'read-later-btn-inline' },
+    { key: 'workBooks',  icon: '💼', title: 'Work',       active: 'work-active',       grid: 'work-btn-grid',       inline: 'work-btn-inline' },
+    { key: 'hobbyBooks', icon: '🎯', title: 'Hobby',      active: 'hobby-active',      grid: 'hobby-btn-grid',      inline: 'hobby-btn-inline' }
+];
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -334,11 +344,7 @@ window.library = {
         const type = document.getElementById('fileTypeFilter')?.value || '';
         const classification = document.getElementById('classificationFilter')?.value || '';
 
-        const inClass = (book) => {
-            if (!classification) return true;
-            const ids = this[classification];
-            return Array.isArray(ids) && ids.includes(book.id);
-        };
+        const inClass = (book) => !classification || this.hasTag(classification, book.id);
 
         return this.books.filter(book =>
             (!term || `${book.title} ${book.author} ${book.description || ''}`.toLowerCase().includes(term)) &&
@@ -373,6 +379,17 @@ window.library = {
                     onerror="this.style.display='none'">`
             : '';
 
+        // Clickable tag buttons (favorites / read later / work / hobby).
+        const tags = (book, variant) => {
+            const container = variant === 'grid' ? 'classification-buttons-grid' : 'classification-buttons';
+            return `<div class="${container}">` + CLASSIFICATIONS.map(c => {
+                const on = this.hasTag(c.key, book.id);
+                return `<button type="button" class="${c[variant]}${on ? ' ' + c.active : ''}"
+                        title="${c.title}${on ? ' (on)' : ''}"
+                        onclick="window.library.toggleTag('${c.key}', '${esc(book.id)}')">${c.icon}</button>`;
+            }).join('') + '</div>';
+        };
+
         if (this.viewMode === 'list') {
             container.innerHTML = books.map(book => `
                 <div class="book-card book-list-item" data-book-id="${esc(book.id)}">
@@ -380,6 +397,7 @@ window.library = {
                     <div class="book-actions-col">
                         <button onclick="window.library.downloadBook('${esc(book.filePath)}')">Download</button>
                         <button onclick="window.library.readBook('${esc(book.filePath)}')">Read</button>
+                        ${tags(book, 'inline')}
                     </div>
                     <div class="book-info-col">
                         <div class="book-name">${esc(book.title)}</div>
@@ -397,12 +415,35 @@ window.library = {
                     ${book.year ? `<p><strong>Year:</strong> ${esc(book.year)}</p>` : ''}
                     ${book.description ? `<p>${esc(book.description)}</p>` : ''}
                     <p><strong>File:</strong> ${esc(book.fileName)}</p>
+                    ${tags(book, 'grid')}
                     <div class="book-actions">
                         <button onclick="window.library.downloadBook('${esc(book.filePath)}')">Download</button>
                         <button onclick="window.library.readBook('${esc(book.filePath)}')">Read</button>
                     </div>
                 </div>`).join('');
         }
+    },
+
+    // --- classification tags ---------------------------------------------
+
+    hasTag(key, bookId) {
+        return (this[key] || []).some(id => String(id) === String(bookId));
+    },
+
+    /* Turn a tag on or off for a book. Tags are part of the catalogue, so this
+       counts as a change that needs saving. */
+    toggleTag(key, bookId) {
+        if (!CLASSIFICATIONS.some(c => c.key === key)) return;
+        if (!Array.isArray(this[key])) this[key] = [];
+
+        if (this.hasTag(key, bookId)) {
+            this[key] = this[key].filter(id => String(id) !== String(bookId));
+        } else {
+            this[key].push(String(bookId));
+        }
+
+        this.renderBooks();       // repaint so the button state and any active filter follow
+        this.markDirty();
     },
 
     /* Fill every filter dropdown from the data actually present. */
