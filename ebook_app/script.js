@@ -83,6 +83,7 @@ window.library = {
     // --- startup ----------------------------------------------------------
 
     init() {
+        setLang(getLang());          // paint the markup in the remembered language
         this.applyTheme();
         this.setViewMode(this.viewMode, { silent: true });
         this.showUserView();
@@ -103,17 +104,14 @@ window.library = {
         // offer to bring them back. This is an EXPLICIT recovery, never a silent
         // cache — the catalogue file stays the source of truth.
         this.sourceLabel = this.loaded
-            ? `Catalogue loaded automatically — ${this.books.length} book(s).`
-            : 'No catalogue found (ebook_app/data.js) — you can load a file manually:';
+            ? t('bar.autoLoaded', { count: this.books.length })
+            : t('bar.noCatalogue');
 
         const draft = this.readDraft();
         if (draft) {
             // The saved catalogue is what you see; the draft is an older set of
             // changes that was never written to a file. Say which is which.
-            this.showLoadBar(
-                `Changes you never saved (${draft.savedAt}) are still here. ` +
-                `Showing the saved catalogue — restore them or drop them?`,
-                false, 'draft');
+            this.showLoadBar(t('bar.draftFound', { when: draft.savedAt }), false, 'draft');
         } else {
             this.showLoadBar(this.sourceLabel, this.loaded);
         }
@@ -155,8 +153,7 @@ window.library = {
 
     async grantFolderAccess() {
         if (!this.folderApiAvailable) {
-            alert('This browser has no folder access API (Chrome or Edge do). ' +
-                  'The manual way keeps working: copy files into books/ yourself and press Save.');
+            alert(t('msg.noFolderApi'));
             return false;
         }
         try {
@@ -166,8 +163,7 @@ window.library = {
             try {
                 await handle.getDirectoryHandle('ebook_app');
             } catch {
-                if (!confirm('That folder has no "ebook_app" inside — is it really the ' +
-                             'ebook-library folder? Choose "Cancel" to pick another one.')) {
+                if (!confirm(t('msg.wrongFolder'))) {
                     return false;
                 }
             }
@@ -222,7 +218,7 @@ window.library = {
         this.dirty = false;
         this.clearDraft();
         this.hideSaveWarning();
-        this.sourceLabel = `Saved automatically — ${this.books.length} book(s).`;
+        this.sourceLabel = t('bar.savedAuto', { count: this.books.length });
         this.showLoadBar(this.sourceLabel, true);
         return true;
     },
@@ -236,7 +232,7 @@ window.library = {
             await this.autoSave();
         } catch (error) {
             console.error('Automatic save failed:', error);
-            alert('Could not save automatically — use "Save catalogue" instead.\n' + error.message);
+            alert(t('msg.autoSaveFailed', { error: error.message }));
         }
     },
 
@@ -249,11 +245,11 @@ window.library = {
         }
         if (status) {
             if (this.folderReady) {
-                status.textContent = `Folder access on (${this.folderHandle.name}): books are copied for you and changes save themselves.`;
+                status.textContent = t('manage.mode.folder', { name: this.folderHandle.name });
             } else if (this.folderApiAvailable) {
-                status.textContent = 'Manual mode: copy files into books/ yourself and press Save. Grant folder access to automate both.';
+                status.textContent = t('manage.mode.manual');
             } else {
-                status.textContent = 'Manual mode: copy files into books/ yourself and press Save. (This browser cannot automate it — Chrome or Edge can.)';
+                status.textContent = t('manage.mode.manualOnly');
             }
         }
     },
@@ -299,13 +295,13 @@ window.library = {
         this.loaded = true;
         this.renderAll();
         this.markDirty();          // still unsaved: keep nagging until saved to a file
-        this.sourceLabel = `Restored ${this.books.length} book(s) from unsaved changes.`;
+        this.sourceLabel = t('bar.draftRestored', { count: this.books.length });
         this.showLoadBar(this.sourceLabel, true);
         console.log('Draft restored:', this.books.length, 'books');
     },
 
     discardDraft() {
-        if (!confirm('Drop those unsaved changes and keep the saved catalogue?')) return;
+        if (!confirm(t('msg.dropDraft'))) return;
         this.clearDraft();
         this.showLoadBar(this.sourceLabel, this.loaded);
     },
@@ -316,7 +312,7 @@ window.library = {
        file or a data.js wrapper (window.LIBRARY_DATA = {...};). */
     async loadFromFile(file) {
         if (!file) {
-            alert('Choose a catalogue file (data.js or data.json) first.');
+            alert(t('msg.pickFile'));
             return false;
         }
 
@@ -331,12 +327,12 @@ window.library = {
             data = JSON.parse(text);
         } catch (error) {
             console.error('Cannot parse catalogue:', error);
-            alert('That file is not a readable catalogue (expected JSON, or a data.js wrapper).');
+            alert(t('msg.badJson'));
             return false;
         }
 
         if (typeof data !== 'object' || data === null || !Array.isArray(data.books)) {
-            alert('That file does not look like a catalogue (no "books" array).');
+            alert(t('msg.notCatalogue'));
             return false;
         }
 
@@ -346,7 +342,7 @@ window.library = {
         this.clearDraft();          // the freshly loaded file wins
         this.renderAll();
         this.hideSaveWarning();
-        this.sourceLabel = `Loaded "${file.name}" — ${this.books.length} book(s).`;
+        this.sourceLabel = t('bar.loadedFile', { name: file.name, count: this.books.length });
         this.showLoadBar(this.sourceLabel, true);
         console.log('Catalogue loaded:', this.books.length, 'books from', file.name);
         return true;
@@ -402,7 +398,7 @@ window.library = {
                 this.dirty = false;
                 this.clearDraft();          // the file is authoritative again
                 this.hideSaveWarning();
-                this.sourceLabel = `Saved to "${handle.name}" — ${this.books.length} book(s).`;
+                this.sourceLabel = t('bar.savedTo', { name: handle.name, count: this.books.length });
                 this.showLoadBar(this.sourceLabel, true);
                 console.log('Library written via File System Access API');
                 return;
@@ -417,10 +413,9 @@ window.library = {
         this.dirty = false;
         this.clearDraft();
         this.hideSaveWarning();
-        this.sourceLabel = `Saved — ${this.books.length} book(s) downloaded as data.js.`;
+        this.sourceLabel = t('bar.savedDownload', { count: this.books.length });
         this.showLoadBar(this.sourceLabel, true);
-        alert('data.js was downloaded (check your Downloads folder).\n' +
-              'Move it into the ebook_app folder, replacing the old one.');
+        alert(t('msg.downloaded'));
     },
 
     /* Plain JSON copy, handy for backups or moving the catalogue elsewhere. */
@@ -512,15 +507,14 @@ window.library = {
         if (!container) return;
 
         if (!this.loaded) {
-            container.innerHTML = '<p class="placeholder">No library loaded. Use <strong>Load library</strong> above to open your data.json.</p>';
+            container.innerHTML = `<p class="placeholder">${t('empty.noCatalogue')}</p>`;
             return;
         }
 
         const books = this.visibleBooks();
         if (books.length === 0) {
-            container.innerHTML = this.books.length === 0
-                ? '<p class="placeholder">The library is empty. Add books in the Manage section.</p>'
-                : '<p class="placeholder">No books match the current filters.</p>';
+            container.innerHTML = `<p class="placeholder">${
+                this.books.length === 0 ? t('empty.library') : t('empty.noMatches')}</p>`;
             return;
         }
 
@@ -536,7 +530,7 @@ window.library = {
             return `<div class="${container}">` + CLASSIFICATIONS.map(c => {
                 const on = this.hasTag(c.key, book.id);
                 return `<button type="button" class="${c[variant]}${on ? ' ' + c.active : ''}"
-                        title="${c.title}${on ? ' (on)' : ''}"
+                        title="${t('tag.' + c.key)}${on ? t('tag.on') : ''}"
                         onclick="window.library.toggleTag('${c.key}', '${esc(book.id)}')">${c.icon}</button>`;
             }).join('') + '</div>';
         };
@@ -546,8 +540,8 @@ window.library = {
                 <div class="book-card book-list-item" data-book-id="${esc(book.id)}">
                     <div class="book-thumbnail-col">${cover(book, 60, 80)}</div>
                     <div class="book-actions-col">
-                        <button onclick="window.library.downloadBook('${esc(book.filePath)}')">Download</button>
-                        <button onclick="window.library.readBook('${esc(book.filePath)}')">Read</button>
+                        <button onclick="window.library.downloadBook('${esc(book.filePath)}')">${t('card.download')}</button>
+                        <button onclick="window.library.readBook('${esc(book.filePath)}')">${t('card.read')}</button>
                         ${tags(book, 'inline')}
                     </div>
                     <div class="book-info-col">
@@ -561,15 +555,15 @@ window.library = {
                 <div class="book-card" data-book-id="${esc(book.id)}">
                     ${cover(book, 120, 160)}
                     <h3>${esc(book.title)}</h3>
-                    <p><strong>Author:</strong> ${esc(book.author)}</p>
-                    <p><strong>Category:</strong> ${esc(book.category)}</p>
-                    ${book.year ? `<p><strong>Year:</strong> ${esc(book.year)}</p>` : ''}
+                    <p><strong>${t('card.author')}</strong> ${esc(book.author)}</p>
+                    <p><strong>${t('card.category')}</strong> ${esc(book.category)}</p>
+                    ${book.year ? `<p><strong>${t('card.year')}</strong> ${esc(book.year)}</p>` : ''}
                     ${book.description ? `<p>${esc(book.description)}</p>` : ''}
-                    <p><strong>File:</strong> ${esc(book.fileName)}</p>
+                    <p><strong>${t('card.file')}</strong> ${esc(book.fileName)}</p>
                     ${tags(book, 'grid')}
                     <div class="book-actions">
-                        <button onclick="window.library.downloadBook('${esc(book.filePath)}')">Download</button>
-                        <button onclick="window.library.readBook('${esc(book.filePath)}')">Read</button>
+                        <button onclick="window.library.downloadBook('${esc(book.filePath)}')">${t('card.download')}</button>
+                        <button onclick="window.library.readBook('${esc(book.filePath)}')">${t('card.read')}</button>
                     </div>
                 </div>`).join('');
         }
@@ -610,17 +604,17 @@ window.library = {
 
         const uniq = (arr) => [...new Set(arr.filter(v => v !== undefined && v !== null && v !== ''))];
 
-        fill('categoryFilter', this.categories, 'All Categories');
-        fill('authorFilter', uniq(this.books.map(b => b.author)).sort(), 'All Authors');
-        fill('yearFilter', uniq(this.books.map(b => b.year)).sort((a, b) => b - a), 'All Years');
-        fill('fileTypeFilter', uniq(this.books.map(b => fileExtension(b.fileName))).sort(), 'All Types');
+        fill('categoryFilter', this.categories, t('filter.allCategories'));
+        fill('authorFilter', uniq(this.books.map(b => b.author)).sort(), t('filter.allAuthors'));
+        fill('yearFilter', uniq(this.books.map(b => b.year)).sort((a, b) => b - a), t('filter.allYears'));
+        fill('fileTypeFilter', uniq(this.books.map(b => fileExtension(b.fileName))).sort(), t('filter.allTypes'));
     },
 
     renderCategories() {
         const select = document.getElementById('bookCategory');
         if (select) {
             const current = select.value;
-            select.innerHTML = '<option value="">Select Category</option>' +
+            select.innerHTML = `<option value="">${t('form.selectCategory')}</option>` +
                 this.categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
             if (this.categories.includes(current)) select.value = current;
         }
@@ -640,7 +634,7 @@ window.library = {
         if (!list) return;
 
         if (this.books.length === 0) {
-            list.innerHTML = '<p class="placeholder">No books in the library.</p>';
+            list.innerHTML = `<p class="placeholder">${t('empty.adminBooks')}</p>`;
             return;
         }
 
@@ -650,9 +644,10 @@ window.library = {
                      class="book-thumbnail" style="width:60px;height:80px;object-fit:cover;float:left;margin-right:10px;"
                      onerror="this.style.display='none'">` : ''}
                 <h4>${esc(book.title)}</h4>
-                <p>Author: ${esc(book.author)} | Category: ${esc(book.category)}${book.year ? ` | Year: ${esc(book.year)}` : ''}</p>
-                <p>File: ${esc(book.filePath)}</p>
-                <button class="delete-btn" data-book-id="${esc(book.id)}">Delete</button>
+                <p>${t('admin.meta', { author: esc(book.author), category: esc(book.category) })
+                     }${book.year ? t('admin.metaYear', { year: esc(book.year) }) : ''}</p>
+                <p>${t('admin.file', { path: esc(book.filePath) })}</p>
+                <button class="delete-btn" data-book-id="${esc(book.id)}">${t('manage.delete')}</button>
             </div>`).join('');
 
         list.querySelectorAll('.delete-btn').forEach(btn => {
@@ -677,9 +672,9 @@ window.library = {
         const bookFile = picked('bookFile');
         const thumbFile = picked('thumbnailFile');
 
-        if (!title || !author) { alert('Title and Author are required.'); return; }
-        if (!category) { alert('Choose a category.'); return; }
-        if (!bookFile) { alert('Choose the ebook file.'); return; }
+        if (!title || !author) { alert(t('msg.needTitleAuthor')); return; }
+        if (!category) { alert(t('msg.needCategory')); return; }
+        if (!bookFile) { alert(t('msg.needBookFile')); return; }
 
         const fileName = bookFile.name;
         const thumbName = thumbFile ? thumbFile.name : '';
@@ -694,8 +689,7 @@ window.library = {
                 if (thumbFile) await this.copyIntoLibrary(thumbFile, 'thumbnails');
             } catch (error) {
                 console.error('Copying the files failed:', error);
-                alert('Could not copy the files into the library folder:\n' + error.message +
-                      '\n\nThe book was not added.');
+                alert(t('msg.copyFailed', { error: error.message }));
                 return;
             }
         }
@@ -722,7 +716,7 @@ window.library = {
     deleteBook(id) {
         const book = this.books.find(b => String(b.id) === String(id));
         if (!book) return;
-        if (!confirm(`Delete "${book.title}" from the library?\n(The file in books/ is not touched.)`)) return;
+        if (!confirm(t('msg.deleteBook', { title: book.title }))) return;
 
         this.books = this.books.filter(b => String(b.id) !== String(id));
         ['favorites', 'readLater', 'workBooks', 'hobbyBooks'].forEach(key => {
@@ -750,7 +744,7 @@ window.library = {
         if (!input) return;
         const name = input.value.trim();
         if (!name) return;
-        if (this.categories.includes(name)) { alert(`Category "${name}" already exists.`); return; }
+        if (this.categories.includes(name)) { alert(t('msg.categoryExists', { name })); return; }
 
         this.categories.push(name);
         input.value = '';
@@ -762,8 +756,8 @@ window.library = {
     deleteCategory(name) {
         const used = this.books.filter(b => b.category === name).length;
         const question = used
-            ? `Delete category "${name}"?\n${used} book(s) still use it and will keep the name.`
-            : `Delete category "${name}"?`;
+            ? t('msg.deleteCategoryUsed', { name, count: used })
+            : t('msg.deleteCategory', { name });
         if (!confirm(question)) return;
 
         this.categories = this.categories.filter(c => c !== name);
@@ -801,6 +795,18 @@ window.library = {
         if (!silent) this.renderBooks();
     },
 
+    /* Switch RU/EN: static markup is refreshed by the i18n module, everything the
+       app draws itself is repainted here. */
+    setLanguage(lang) {
+        setLang(lang);
+        this.sourceLabel = this.loaded
+            ? t('bar.autoLoaded', { count: this.books.length })
+            : t('bar.noCatalogue');
+        this.showLoadBar(this.sourceLabel, this.loaded);
+        this.updateFolderUi();
+        this.renderAll();
+    },
+
     toggleTheme() {
         this.theme = this.theme === 'light' ? 'dark' : 'light';
         localStorage.setItem(PREF_THEME, this.theme);
@@ -833,6 +839,7 @@ function restoreDraft() { window.library.restoreDraft(); }
 function discardDraft() { window.library.discardDraft(); }
 function exportJson() { window.library.exportJson(); }
 function grantFolderAccess() { window.library.grantFolderAccess(); }
+function toggleLang() { window.library.setLanguage(getLang() === 'ru' ? 'en' : 'ru'); }
 
 document.addEventListener('DOMContentLoaded', () => {
     window.library.init();

@@ -14,7 +14,7 @@ library moves between computers with a copy of the folder.
 - Search plus filters by category, author, year and file type
 - Categories you can add and remove
 - Classification lists (favorites, read later, work, hobby)
-- Light / dark theme
+- Light / dark theme, and an **English / Russian** interface
 - **Read** and **Download** straight from a card
 - The catalogue is one file that loads by itself at startup
 - Unsaved changes survive an accidental reload
@@ -78,6 +78,7 @@ ebook-library/
 ├── index.html          # open this
 ├── ebook_app/
 │   ├── script.js       # application logic
+│   ├── i18n.js         # interface translations (EN / RU)
 │   ├── styles.css      # styling
 │   ├── data.js         # your catalogue (auto-loaded; overwritten when you save)
 │   └── data.sample.json# the same demo catalogue as plain JSON
@@ -94,7 +95,10 @@ never file contents — which is why those two folders have to stay next to
 - In manual mode adding a book records only the *name* of the file you select, so
   copy the file into `books/` yourself; with folder access the app does it.
 - Deleting a book removes it from the catalogue only; the file stays on disk.
-- Interface preferences (theme, grid/list) live in `localStorage`. Book data does
+- The interface language follows your browser at first start and can be switched
+  with the **RU / EN** button; adding a language means one more block in
+  `ebook_app/i18n.js`.
+- Interface preferences (theme, grid/list, language) live in `localStorage`. Book data does
   not: only a recovery draft of *unsaved* changes is kept there, and it is
   dropped as soon as you save.
 - `ebook_app/data.js` is your own catalogue — it is committed here with demo

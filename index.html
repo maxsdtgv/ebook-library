@@ -9,64 +9,65 @@
 <body>
     <header>
         <nav>
-            <button onclick="showUserView()">Library</button>
-            <button onclick="showAdminView()">Manage</button>
+            <button onclick="showUserView()" data-i18n="nav.library">Library</button>
+            <button onclick="showAdminView()" data-i18n="nav.manage">Manage</button>
             <button id="folderAccessBtn" onclick="grantFolderAccess()" style="display: none;"
-                    title="Let the app copy books into books/ and save the catalogue by itself">📁 Grant folder access</button>
-            <button id="themeToggle" onclick="toggleTheme()">🌙</button>
+                    data-i18n="nav.grantFolder" data-i18n-title="nav.grantFolder.title">📁 Grant folder access</button>
+            <button id="themeToggle" onclick="toggleTheme()" data-i18n-title="nav.theme.title">🌙</button>
+            <button id="langToggle" onclick="toggleLang()" data-i18n-title="nav.lang.title">RU</button>
         </nav>
 
         <!-- Shown until a library file is loaded. The browser cannot open a local
              file on its own, so the user picks it explicitly. If the previous
              session ended with unsaved changes, the restore buttons appear instead. -->
         <div id="loadBar" class="load-bar">
-            <span id="loadBarText">Loading catalogue…</span>
+            <span id="loadBarText" data-i18n="bar.loading">Loading catalogue…</span>
             <span id="loadBarPick">
                 <input type="file" id="libraryFileInput" accept=".json,application/json">
-                <button type="button" onclick="loadLibraryFile()">Load library</button>
+                <button type="button" onclick="loadLibraryFile()" data-i18n="bar.load">Load library</button>
             </span>
             <span id="loadBarDraft" style="display: none;">
-                <button type="button" onclick="restoreDraft()">Restore changes</button>
-                <button type="button" onclick="discardDraft()">Keep saved version</button>
+                <button type="button" onclick="restoreDraft()" data-i18n="bar.restore">Restore changes</button>
+                <button type="button" onclick="discardDraft()" data-i18n="bar.keepSaved">Keep saved version</button>
             </span>
         </div>
 
         <!-- Shown after any change, until the user saves the library back to a file. -->
         <div id="saveWarning" class="save-warning" style="display: none;">
-            Library changed — save it before closing the browser!
-            <button onclick="window.library.saveToFile()">Save now</button>
-            <button onclick="window.library.dismissWarning()">Dismiss</button>
+            <span data-i18n="warn.unsaved">Library changed — save it before closing the browser!</span>
+            <button onclick="window.library.saveToFile()" data-i18n="warn.saveNow">Save now</button>
+            <button onclick="window.library.dismissWarning()" data-i18n="warn.dismiss">Dismiss</button>
         </div>
 
-        <h1>Electronic Library</h1>
+        <h1 data-i18n="app.title">Electronic Library</h1>
     </header>
 
     <!-- Library (user) view -->
     <div id="userView" class="view active">
         <div class="controls">
-            <input type="text" id="searchInput" placeholder="Search books..." oninput="filterBooks()">
+            <input type="text" id="searchInput" data-i18n-placeholder="filter.search" placeholder="Search books..." oninput="filterBooks()">
             <select id="categoryFilter" onchange="filterBooks()">
-                <option value="">All Categories</option>
+                <option value="" data-i18n="filter.allCategories">All Categories</option>
             </select>
             <select id="authorFilter" onchange="filterBooks()">
-                <option value="">All Authors</option>
+                <option value="" data-i18n="filter.allAuthors">All Authors</option>
             </select>
             <select id="yearFilter" onchange="filterBooks()">
-                <option value="">All Years</option>
+                <option value="" data-i18n="filter.allYears">All Years</option>
             </select>
             <select id="fileTypeFilter" onchange="filterBooks()">
-                <option value="">All Types</option>
+                <option value="" data-i18n="filter.allTypes">All Types</option>
             </select>
             <select id="classificationFilter" onchange="filterBooks()">
-                <option value="">All Books</option>
-                <option value="favorites">⭐ Favorites</option>
-                <option value="readLater">📚 Read Later</option>
-                <option value="workBooks">💼 Work Books</option>
-                <option value="hobbyBooks">🎯 Hobby Books</option>
+                <option value="" data-i18n="filter.allBooks">All Books</option>
+                <option value="favorites" data-i18n="filter.favorites">⭐ Favorites</option>
+                <option value="readLater" data-i18n="filter.readLater">📚 Read Later</option>
+                <option value="workBooks" data-i18n="filter.workBooks">💼 Work Books</option>
+                <option value="hobbyBooks" data-i18n="filter.hobbyBooks">🎯 Hobby Books</option>
             </select>
             <div class="view-toggle">
-                <button id="gridBtn" onclick="setViewMode('grid')" class="active">Grid</button>
-                <button id="listBtn" onclick="setViewMode('list')">List</button>
+                <button id="gridBtn" onclick="setViewMode('grid')" class="active" data-i18n="view.grid">Grid</button>
+                <button id="listBtn" onclick="setViewMode('list')" data-i18n="view.list">List</button>
             </div>
         </div>
         <div id="booksContainer" class="books-grid"></div>
@@ -75,51 +76,42 @@
     <!-- Manage (admin) view -->
     <div id="adminView" class="view">
         <div class="admin-section">
-            <h2>Add Book</h2>
+            <h2 data-i18n="manage.addBook">Add Book</h2>
             <p class="hint" id="folderStatus">Manual mode: copy files into books/ yourself and press Save.</p>
-            <p class="hint">
-                Fill in the details and pick the ebook file. In manual mode only the
-                file <em>name</em> is recorded, so the file must already be in
-                <code>books/</code> (and its cover in <code>thumbnails/</code>).
-                With folder access granted, the app copies both for you from
-                wherever you picked them.
-            </p>
+            <p class="hint" data-i18n="manage.addHint"></p>
             <form id="addBookForm">
-                <input type="text" id="bookTitle" placeholder="Title" required>
-                <input type="text" id="bookAuthor" placeholder="Author" required>
-                <input type="number" id="bookYear" placeholder="Year" min="1000" max="2100">
-                <textarea id="bookDescription" placeholder="Short description" rows="3"></textarea>
-                <label class="field-label" for="bookFile">Ebook file (in books/)</label>
+                <input type="text" id="bookTitle" data-i18n-placeholder="form.title" placeholder="Title" required>
+                <input type="text" id="bookAuthor" data-i18n-placeholder="form.author" placeholder="Author" required>
+                <input type="number" id="bookYear" data-i18n-placeholder="form.year" placeholder="Year" min="1000" max="2100">
+                <textarea id="bookDescription" data-i18n-placeholder="form.description" placeholder="Short description" rows="3"></textarea>
+                <label class="field-label" for="bookFile" data-i18n="form.bookFile">Ebook file (in books/)</label>
                 <input type="file" id="bookFile" accept=".epub,.pdf,.txt,.doc,.docx,.djvu,.pub" required>
-                <label class="field-label" for="thumbnailFile">Cover image (in thumbnails/, optional)</label>
+                <label class="field-label" for="thumbnailFile" data-i18n="form.coverFile">Cover image (in thumbnails/, optional)</label>
                 <input type="file" id="thumbnailFile" accept="image/*">
                 <select id="bookCategory" required>
-                    <option value="">Select Category</option>
+                    <option value="" data-i18n="form.selectCategory">Select Category</option>
                 </select>
-                <button type="submit">Add Book</button>
+                <button type="submit" data-i18n="form.submit">Add Book</button>
             </form>
         </div>
 
         <div class="admin-section">
-            <h2>Manage Categories</h2>
-            <input type="text" id="newCategory" placeholder="Category name">
-            <button onclick="addCategory()">Add Category</button>
+            <h2 data-i18n="manage.categories">Manage Categories</h2>
+            <input type="text" id="newCategory" data-i18n-placeholder="manage.categoryName" placeholder="Category name">
+            <button onclick="addCategory()" data-i18n="manage.addCategory">Add Category</button>
             <div style="margin-top: 20px;"></div>
             <div id="categoriesList"></div>
         </div>
 
         <div class="admin-section">
-            <h2>Save Library</h2>
-            <button onclick="window.library.saveToFile()">Save catalogue (data.js)</button>
-            <button onclick="exportJson()">Export JSON copy</button>
-            <p><small>Save writes <code>ebook_app/data.js</code>, which the app loads
-               automatically next time — in Chrome/Edge you can overwrite the existing
-               file in place. A browser cannot write to disk on its own, so this click
-               is the one manual step. The JSON copy is just for backups.</small></p>
+            <h2 data-i18n="manage.save">Save Library</h2>
+            <button onclick="window.library.saveToFile()" data-i18n="manage.saveCatalogue">Save catalogue (data.js)</button>
+            <button onclick="exportJson()" data-i18n="manage.exportJson">Export JSON copy</button>
+            <p><small data-i18n="manage.saveHint"></small></p>
         </div>
 
         <div class="admin-section">
-            <h2>Manage Books</h2>
+            <h2 data-i18n="manage.books">Manage Books</h2>
             <div id="adminBooksList"></div>
         </div>
     </div>
@@ -128,6 +120,7 @@
          allowed to fetch() local files, but it may load a <script>. This is what
          makes the library appear automatically, with no clicks. Missing file is
          harmless — the app then offers the manual "Load library" button. -->
+    <script src="ebook_app/i18n.js"></script>
     <script src="ebook_app/data.js"></script>
     <script src="ebook_app/script.js"></script>
 </body>
