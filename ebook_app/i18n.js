@@ -21,7 +21,7 @@ const TRANSLATIONS = {
         'nav.library': 'Library',
         'nav.manage': 'Manage',
         'nav.grantFolder': '📁 Grant folder access',
-        'nav.grantFolder.title': 'Let the app copy books into books/ and save the catalogue by itself',
+        'nav.grantFolder.title': 'Select the ebook-library folder so the app can copy books into books/ and save the catalogue by itself',
         'nav.theme.title': 'Day / night theme',
         'nav.lang.title': 'Switch interface language',
         'app.title': 'Electronic Library',
@@ -81,7 +81,7 @@ const TRANSLATIONS = {
         // manage: add book
         'manage.addBook': 'Add Book',
         'manage.mode.folder': 'Folder access on ({name}): books are copied for you and changes save themselves.',
-        'manage.mode.manual': 'Manual mode: copy files into books/ yourself and press Save. Grant folder access to automate both.',
+        'manage.mode.manual': 'Manual mode: copy files into books/ yourself and press Save. Grant folder access to automate both — select the ebook-library folder itself (Chrome refuses your home, Documents or Downloads folder).',
         'manage.mode.manualOnly': 'Manual mode: copy files into books/ yourself and press Save. (This browser cannot automate it — Chrome or Edge can.)',
         'manage.addHint': 'Fill in the details and pick the ebook file. In manual mode only the file <em>name</em> is recorded, so the file must already be in <code>books/</code> (and its cover in <code>thumbnails/</code>). With folder access granted, the app copies both for you from wherever you picked them.',
         'form.title': 'Title',
@@ -123,14 +123,15 @@ const TRANSLATIONS = {
         'msg.downloaded': 'data.js was downloaded (check your Downloads folder).\nMove it into the ebook_app folder, replacing the old one.',
         'msg.autoSaveFailed': 'Could not save automatically — use "Save catalogue" instead.\n{error}',
         'msg.noFolderApi': 'This browser has no folder access API (Chrome or Edge do). The manual way keeps working: copy files into books/ yourself and press Save.',
-        'msg.wrongFolder': 'That folder has no "ebook_app" inside — is it really the ebook-library folder? Choose "Cancel" to pick another one.'
+        'msg.wrongFolder': 'That folder has no "ebook_app" inside — is it really the ebook-library folder? Choose "Cancel" to pick another one.',
+        'msg.folderBlocked': 'Chrome refuses that folder. It blocks a few well-known ones — your home folder itself, Desktop, Documents, Downloads, ~/.config — even though it says "system files".\n\nPick the ebook-library folder itself (go inside it), not the folder above it. Anything nested inside those blocked folders is fine.'
     },
 
     ru: {
         'nav.library': 'Библиотека',
         'nav.manage': 'Управление',
         'nav.grantFolder': '📁 Доступ к папке',
-        'nav.grantFolder.title': 'Разрешить копировать книги в books/ и сохранять каталог самостоятельно',
+        'nav.grantFolder.title': 'Выберите папку ebook-library, чтобы приложение копировало книги в books/ и сохраняло каталог само',
         'nav.theme.title': 'Светлая / тёмная тема',
         'nav.lang.title': 'Сменить язык интерфейса',
         'app.title': 'Электронная библиотека',
@@ -184,7 +185,7 @@ const TRANSLATIONS = {
 
         'manage.addBook': 'Добавить книгу',
         'manage.mode.folder': 'Доступ к папке выдан ({name}): книги копируются автоматически, изменения сохраняются сами.',
-        'manage.mode.manual': 'Ручной режим: копируйте файлы в books/ самостоятельно и нажимайте «Сохранить». Выдайте доступ к папке, чтобы это делалось автоматически.',
+        'manage.mode.manual': 'Ручной режим: копируйте файлы в books/ самостоятельно и нажимайте «Сохранить». Выдайте доступ к папке, чтобы это делалось автоматически — выбирайте саму папку ebook-library (домашний каталог, «Документы» и «Загрузки» Chrome не отдаёт).',
         'manage.mode.manualOnly': 'Ручной режим: копируйте файлы в books/ самостоятельно и нажимайте «Сохранить». (Этот браузер не умеет автоматизировать — умеют Chrome и Edge.)',
         'manage.addHint': 'Заполните поля и выберите файл книги. В ручном режиме сохраняется только <em>имя</em> файла, поэтому сам файл должен уже лежать в <code>books/</code> (а обложка — в <code>thumbnails/</code>). При выданном доступе к папке приложение скопирует оба файла само, откуда бы вы их ни выбрали.',
         'form.title': 'Название',
@@ -224,7 +225,8 @@ const TRANSLATIONS = {
         'msg.downloaded': 'Файл data.js скачан (проверьте папку «Загрузки»).\nПереместите его в папку ebook_app, заменив старый.',
         'msg.autoSaveFailed': 'Не удалось сохранить автоматически — воспользуйтесь кнопкой «Сохранить каталог».\n{error}',
         'msg.noFolderApi': 'В этом браузере нет API доступа к папке (есть в Chrome и Edge). Ручной способ продолжает работать: копируйте файлы в books/ сами и нажимайте «Сохранить».',
-        'msg.wrongFolder': 'В выбранной папке нет «ebook_app» — это точно папка ebook-library? Нажмите «Отмена», чтобы выбрать другую.'
+        'msg.wrongFolder': 'В выбранной папке нет «ebook_app» — это точно папка ebook-library? Нажмите «Отмена», чтобы выбрать другую.',
+        'msg.folderBlocked': 'Chrome не отдаёт эту папку. Он блокирует несколько известных каталогов — сам домашний каталог, «Рабочий стол», «Документы», «Загрузки», ~/.config — хотя пишет про «системные файлы».\n\nВыберите саму папку ebook-library (зайдите внутрь неё), а не папку выше. Всё, что лежит внутри заблокированных каталогов, доступно нормально.'
     }
 };
 

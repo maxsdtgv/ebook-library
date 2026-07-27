@@ -176,7 +176,14 @@ window.library = {
             if (this.dirty) await this.autoSave();
             return true;
         } catch (error) {
-            if (error.name !== 'AbortError') console.error('Folder access failed:', error);
+            if (error.name === 'AbortError') return false;      // dialog dismissed
+
+            // Chrome blocks a handful of well-known directories (home itself,
+            // Desktop, Documents, Downloads, ~/.config …) and reports it as
+            // "contains system files", which sends people looking in the wrong
+            // place. Say what actually needs doing.
+            console.error('Folder access failed:', error);
+            alert(t('msg.folderBlocked'));
             return false;
         }
     },
