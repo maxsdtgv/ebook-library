@@ -692,6 +692,51 @@ nav button:hover {
     color: var(--secondary-text);
 }
 
+/* ---- Book list on the Manage page --------------------------------------
+   This list had no styles at all and leaned on a float:left thumbnail, so rows
+   drifted into each other. A flex row keeps cover, details and the delete button
+   in their own places. */
+.admin-book-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-book-item:last-child { border-bottom: none; }
+
+.admin-book-cover {
+    flex: 0 0 60px;
+}
+
+.admin-book-cover img {
+    width: 60px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 3px;
+}
+
+.admin-book-info {
+    flex: 1;
+    min-width: 0;              /* let long paths wrap instead of stretching the row */
+}
+
+.admin-book-info h4 {
+    margin-bottom: 4px;
+}
+
+.admin-book-info p {
+    font-size: 13px;
+    color: var(--secondary-text);
+    word-break: break-word;
+}
+
+.admin-book-item .delete-btn {
+    flex: 0 0 auto;
+    align-self: center;
+}
+
 /* ---- Classification tag buttons: on/off appearance ----------------------
    The icons are emoji, and `color` has no effect on an emoji glyph — the font
    draws it in its own colours. So the off state is expressed with opacity and

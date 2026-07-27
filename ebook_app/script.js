@@ -647,13 +647,16 @@ window.library = {
 
         list.innerHTML = this.books.map(book => `
             <div class="admin-book-item">
-                ${book.thumbnail ? `<img src="${esc(book.thumbnail)}" alt="${esc(book.title)}"
-                     class="book-thumbnail" style="width:60px;height:80px;object-fit:cover;float:left;margin-right:10px;"
-                     onerror="this.style.display='none'">` : ''}
+                <div class="admin-book-cover">
+                    ${book.thumbnail ? `<img src="${esc(book.thumbnail)}" alt="${esc(book.title)}"
+                         class="book-thumbnail" onerror="this.style.display='none'">` : ''}
+                </div>
+                <div class="admin-book-info">
                 <h4>${esc(book.title)}</h4>
                 <p>${t('admin.meta', { author: esc(book.author), category: esc(book.category) })
                      }${book.year ? t('admin.metaYear', { year: esc(book.year) }) : ''}</p>
                 <p>${t('admin.file', { path: esc(book.filePath) })}</p>
+                </div>
                 <button class="delete-btn" data-book-id="${esc(book.id)}">${t('manage.delete')}</button>
             </div>`).join('');
 
