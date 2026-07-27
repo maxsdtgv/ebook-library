@@ -1,0 +1,19 @@
+{
+  "books": [],
+  "categories": [
+    "Fiction",
+    "Non-Fiction",
+    "Technical",
+    "test",
+    "test2"
+  ],
+  "favorites": [],
+  "readLater": [],
+  "workBooks": [],
+  "hobbyBooks": [],
+  "settings": {
+    "viewMode": "list",
+    "currentView": "admin",
+    "theme": "light"
+  }
+}

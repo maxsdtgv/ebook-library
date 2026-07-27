@@ -1,0 +1,4 @@
+Sample ebook #1
+
+This is a placeholder file so the Read/Download buttons have something to open.
+Replace it with your real ebook and update the library entry.

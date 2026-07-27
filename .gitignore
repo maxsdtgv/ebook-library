@@ -1,0 +1,11 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Real ebook files are usually large and personal: keep the folder, not the
+# contents. Remove these two lines if you WANT your library committed.
+books/*
+!books/README.md
+!books/sample-*

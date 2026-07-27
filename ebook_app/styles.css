@@ -1,0 +1,686 @@
+:root {
+    --bg-color: #f5f5f5;
+    --text-color: #2c3e50;
+    --card-bg: white;
+    --header-bg: #2c3e50;
+    --header-text: white;
+    --border-color: #ddd;
+    --secondary-text: #7f8c8d;
+    --button-bg: #3498db;
+    --button-hover: #2980b9;
+}
+
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --card-bg: #2d2d2d;
+    --header-bg: #1a1a1a;
+    --header-text: #e0e0e0;
+    --border-color: #444;
+    --secondary-text: #b0b0b0;
+    --button-bg: #4a90e2;
+    --button-hover: #357abd;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+header {
+    background: var(--header-bg);
+    color: var(--header-text);
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+nav button {
+    background: var(--button-bg);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    margin-left: 0.5rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+nav button:hover {
+    background: var(--button-hover);
+}
+
+.view {
+    display: none;
+    padding: 2rem;
+}
+
+.view.active {
+    display: block;
+}
+
+.controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    align-items: center;
+}
+
+.controls input, .controls select {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+.view-toggle button {
+    background: #ecf0f1;
+    border: 1px solid #bdc3c7;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+.view-toggle button.active {
+    background: #3498db;
+    color: white;
+}
+
+.books-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.books-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.book-card {
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, background-color 0.3s;
+    position: relative;
+}
+
+.favorite-btn {
+    position: absolute;
+    top: 1rem;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #ccc;
+    transition: color 0.3s;
+    z-index: 1;
+}
+
+.favorite-btn:hover {
+    color: #f39c12;
+}
+
+.favorite-btn.favorited {
+    color: #f39c12;
+}
+
+.read-later-btn {
+    position: absolute;
+    top: 1rem;
+    right: 3rem;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #ccc;
+    transition: color 0.3s;
+    z-index: 1;
+}
+
+.read-later-btn:hover {
+    color: #3498db;
+}
+
+.read-later-btn.read-later-active {
+    color: #3498db;
+}
+
+.work-btn {
+    position: absolute;
+    top: 1rem;
+    right: 5.5rem;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #ccc;
+    transition: color 0.3s;
+    z-index: 1;
+}
+
+.work-btn:hover {
+    color: #8e44ad;
+}
+
+.work-btn.work-active {
+    color: #8e44ad;
+}
+
+.hobby-btn {
+    position: absolute;
+    top: 1rem;
+    right: 8rem;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #ccc;
+    transition: color 0.3s;
+    z-index: 1;
+}
+
+.hobby-btn:hover {
+    color: #e74c3c;
+}
+
+.hobby-btn.hobby-active {
+    color: #e74c3c;
+}
+
+.book-card:hover {
+    transform: translateY(-2px);
+}
+
+.book-thumbnail {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.book-info h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-color);
+}
+
+.book-info p {
+    color: var(--secondary-text);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.book-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.book-actions button {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.book-actions button:hover {
+    background: #229954;
+}
+
+.book-actions button.disabled-btn {
+    background: var(--secondary-text);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.book-actions button.disabled-btn:hover {
+    background: var(--secondary-text);
+}
+
+.admin-section {
+    background: var(--card-bg);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.admin-section h2 {
+    margin-bottom: 1rem;
+    color: var(--text-color);
+}
+
+#addBookForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 400px;
+}
+
+#addBookForm input, #addBookForm select, #addBookForm textarea {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: inherit;
+    background: var(--card-bg);
+    color: var(--text-color);
+}
+
+#addBookForm button {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#addBookForm button:hover {
+    background: #2980b9;
+}
+
+.category-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background: #ecf0f1;
+    margin-bottom: 0.5rem;
+    border-radius: 4px;
+}
+
+.delete-btn {
+    background: #e74c3c !important;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.delete-btn:hover {
+    background: #c0392b !important;
+}
+
+.list-view .book-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.list-view .book-thumbnail {
+    width: 80px;
+    height: 100px;
+    flex-shrink: 0;
+}
+
+.list-view .book-info {
+    flex-grow: 1;
+    margin-right: 1rem;
+}
+
+.list-view .book-actions {
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+
+/* Two-column layout for book details */
+.book-details {
+    display: flex;
+    gap: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.book-column {
+    flex: 1;
+}
+
+.book-column.book-actions {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+}
+
+.book-description {
+    margin-top: 0.5rem;
+}
+
+/* Grid view - stack columns vertically */
+.books-grid .book-details {
+    display: block;
+}
+
+.books-grid .book-column {
+    margin-bottom: 0;
+}
+
+.books-grid .book-column.book-actions {
+    display: flex;
+    flex-direction: row;
+    margin-top: 1rem;
+}
+
+/* List view - keep columns side by side */
+.books-list .book-details {
+    display: flex;
+}
+
+/* Classification buttons in grid view - under File field */
+.classification-buttons-grid {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    justify-content: center;
+}
+
+.classification-buttons-grid button {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    color: #ccc;
+    transition: color 0.3s;
+    padding: 0.2rem;
+}
+
+.favorite-btn-grid:hover,
+.favorite-btn-grid.favorited {
+    color: #f39c12;
+}
+
+.read-later-btn-grid:hover,
+.read-later-btn-grid.read-later-active {
+    color: #3498db;
+}
+
+.work-btn-grid:hover,
+.work-btn-grid.work-active {
+    color: #8e44ad;
+}
+
+.hobby-btn-grid:hover,
+.hobby-btn-grid.hobby-active {
+    color: #e74c3c;
+}
+
+/* Hide old positioned buttons in grid view */
+.books-grid .favorite-btn,
+.books-grid .read-later-btn,
+.books-grid .work-btn,
+.books-grid .hobby-btn {
+    display: none;
+}
+
+/* Show grid classification buttons only in grid view */
+.books-grid .classification-buttons-grid {
+    display: flex;
+}
+
+.books-list .classification-buttons-grid {
+    display: none;
+}
+
+/* Classification buttons in list view - inline in first column */
+.classification-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.classification-buttons button {
+    background: none;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    color: #ccc;
+    transition: color 0.3s;
+    padding: 0.2rem;
+}
+
+.favorite-btn-inline:hover,
+.favorite-btn-inline.favorited {
+    color: #f39c12;
+}
+
+.read-later-btn-inline:hover,
+.read-later-btn-inline.read-later-active {
+    color: #3498db;
+}
+
+.work-btn-inline:hover,
+.work-btn-inline.work-active {
+    color: #8e44ad;
+}
+
+.hobby-btn-inline:hover,
+.hobby-btn-inline.hobby-active {
+    color: #e74c3c;
+}
+
+/* Hide classification buttons in grid view */
+.books-grid .classification-buttons {
+    display: none;
+}
+
+/* Show original positioned buttons only in grid view */
+.books-grid .favorite-btn,
+.books-grid .read-later-btn,
+.books-grid .work-btn,
+.books-grid .hobby-btn {
+    display: block;
+}
+
+.books-list .favorite-btn,
+.books-list .read-later-btn,
+.books-list .work-btn,
+.books-list .hobby-btn {
+    display: none;
+}
+
+/* Action buttons in list view - inline in second column */
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.action-buttons button {
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.action-buttons button:hover {
+    background: #229954;
+}
+
+.action-buttons button.disabled-btn {
+    background: var(--secondary-text);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.action-buttons button.disabled-btn:hover {
+    background: var(--secondary-text);
+}
+
+/* Hide action buttons in grid view */
+.books-grid .action-buttons {
+    display: none;
+}
+
+/* Show original book-actions only in grid view */
+.books-grid .book-actions {
+    display: flex;
+}
+
+.books-list .book-actions {
+    display: none;
+}
+
+/* List view - align all content to left */
+.books-list .book-card {
+    text-align: left;
+}
+/* List view styles */
+.books-list .book-list-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 0;
+}
+
+.book-thumbnail-col {
+    width: 80px;
+    flex-shrink: 0;
+}
+
+.book-actions-col {
+    width: 150px;
+    flex-shrink: 0;
+}
+
+.book-actions-col button {
+    margin-right: 5px;
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.book-info-col {
+    flex: 2;
+    padding: 0 10px;
+}
+
+.book-name {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.book-author-year {
+    font-size: 14px;
+    color: #666;
+}
+
+.book-file-col {
+    flex: 1;
+    padding: 0 10px;
+    font-size: 12px;
+    color: #666;
+}
+/* Save warning message */
+.save-warning {
+    background-color: #fff3cd;
+    border: 1px solid #ffeaa7;
+    color: #856404;
+    padding: 10px 15px;
+    margin: 10px 0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.save-warning button {
+    margin-left: 10px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.save-warning button:first-of-type {
+    background-color: #007bff;
+    color: white;
+}
+
+.save-warning button:last-of-type {
+    background-color: #6c757d;
+    color: white;
+}
+
+/* ---- Library file loading bar -------------------------------------------
+   Shown in the header until the user has opened a library file. The app never
+   loads data on its own: a page opened as file:// is not allowed to read local
+   files, so the choice has to be explicit. */
+.load-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    padding: 10px 14px;
+    background-color: #e7f3ff;
+    border: 1px solid #b6daff;
+    border-radius: 5px;
+    color: #14375e;
+    font-size: 14px;
+}
+
+.load-bar.loaded {
+    background-color: #e8f6ec;
+    border-color: #b7e0c2;
+    color: #1e4d2b;
+}
+
+.load-bar button {
+    padding: 6px 14px;
+    background-color: var(--button-bg);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.load-bar button:hover { background-color: var(--button-hover); }
+
+/* Placeholder text shown instead of book cards (empty library, no matches). */
+.placeholder {
+    padding: 20px;
+    color: var(--secondary-text);
+    text-align: center;
+}
+
+/* Explanatory note in the Manage form. */
+.hint {
+    margin-bottom: 12px;
+    color: var(--secondary-text);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.hint code {
+    padding: 1px 5px;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+}
+
+.field-label {
+    display: block;
+    margin: 6px 0 2px;
+    font-size: 13px;
+    color: var(--secondary-text);
+}

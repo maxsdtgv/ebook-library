@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electronic Library</title>
+    <link rel="stylesheet" href="ebook_app/styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <button onclick="showUserView()">Library</button>
+            <button onclick="showAdminView()">Manage</button>
+            <button id="themeToggle" onclick="toggleTheme()">🌙</button>
+        </nav>
+
+        <!-- Shown until a library file is loaded. The browser cannot open a local
+             file on its own, so the user picks it explicitly. -->
+        <div id="loadBar" class="load-bar">
+            <span id="loadBarText">No library loaded — choose your library file (data.json):</span>
+            <input type="file" id="libraryFileInput" accept=".json,application/json">
+            <button type="button" onclick="loadLibraryFile()">Load library</button>
+        </div>
+
+        <!-- Shown after any change, until the user saves the library back to a file. -->
+        <div id="saveWarning" class="save-warning" style="display: none;">
+            Library changed — save it before closing the browser!
+            <button onclick="window.library.saveToFile()">Save now</button>
+            <button onclick="window.library.dismissWarning()">Dismiss</button>
+        </div>
+
+        <h1>Electronic Library</h1>
+    </header>
+
+    <!-- Library (user) view -->
+    <div id="userView" class="view active">
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="Search books..." oninput="filterBooks()">
+            <select id="categoryFilter" onchange="filterBooks()">
+                <option value="">All Categories</option>
+            </select>
+            <select id="authorFilter" onchange="filterBooks()">
+                <option value="">All Authors</option>
+            </select>
+            <select id="yearFilter" onchange="filterBooks()">
+                <option value="">All Years</option>
+            </select>
+            <select id="fileTypeFilter" onchange="filterBooks()">
+                <option value="">All Types</option>
+            </select>
+            <select id="classificationFilter" onchange="filterBooks()">
+                <option value="">All Books</option>
+                <option value="favorites">⭐ Favorites</option>
+                <option value="readLater">📚 Read Later</option>
+                <option value="workBooks">💼 Work Books</option>
+                <option value="hobbyBooks">🎯 Hobby Books</option>
+            </select>
+            <div class="view-toggle">
+                <button id="gridBtn" onclick="setViewMode('grid')" class="active">Grid</button>
+                <button id="listBtn" onclick="setViewMode('list')">List</button>
+            </div>
+        </div>
+        <div id="booksContainer" class="books-grid"></div>
+    </div>
+
+    <!-- Manage (admin) view -->
+    <div id="adminView" class="view">
+        <div class="admin-section">
+            <h2>Add Book</h2>
+            <p class="hint">
+                Copy the ebook into <code>books/</code> and its cover into
+                <code>thumbnails/</code> first. Selecting files below only records
+                their names — a browser cannot copy files for you.
+            </p>
+            <form id="addBookForm">
+                <input type="text" id="bookTitle" placeholder="Title" required>
+                <input type="text" id="bookAuthor" placeholder="Author" required>
+                <input type="number" id="bookYear" placeholder="Year" min="1000" max="2100">
+                <textarea id="bookDescription" placeholder="Short description" rows="3"></textarea>
+                <label class="field-label" for="bookFile">Ebook file (in books/)</label>
+                <input type="file" id="bookFile" accept=".epub,.pdf,.txt,.doc,.docx,.djvu,.pub" required>
+                <label class="field-label" for="thumbnailFile">Cover image (in thumbnails/, optional)</label>
+                <input type="file" id="thumbnailFile" accept="image/*">
+                <select id="bookCategory" required>
+                    <option value="">Select Category</option>
+                </select>
+                <button type="submit">Add Book</button>
+            </form>
+        </div>
+
+        <div class="admin-section">
+            <h2>Manage Categories</h2>
+            <input type="text" id="newCategory" placeholder="Category name">
+            <button onclick="addCategory()">Add Category</button>
+            <div style="margin-top: 20px;"></div>
+            <div id="categoriesList"></div>
+        </div>
+
+        <div class="admin-section">
+            <h2>Save Library</h2>
+            <button onclick="window.library.saveToFile()">Save to data.json</button>
+            <p><small>Writes the whole library (books, categories, settings) to a
+               JSON file. Keep it next to the app and load it on the next start.</small></p>
+        </div>
+
+        <div class="admin-section">
+            <h2>Manage Books</h2>
+            <div id="adminBooksList"></div>
+        </div>
+    </div>
+
+    <script src="ebook_app/script.js"></script>
+</body>
+</html>
