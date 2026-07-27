@@ -8,6 +8,8 @@ library moves between computers with a copy of the folder.
 ![no dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)
 ![runs offline](https://img.shields.io/badge/runs-offline-blue)
 
+![The library in list view with the dark theme](docs/screenshot.png)
+
 ## Features
 
 - Book cards with covers, in **grid** or **list** view
