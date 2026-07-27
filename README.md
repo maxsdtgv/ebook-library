@@ -65,8 +65,8 @@ are two modes:
 | Setup | grant access once per session | nothing |
 
 The catalogue format is identical either way, so a library filled in Chrome opens
-in Firefox and back. `Export JSON copy` gives you a plain `data.json` for backups,
-and **Load library** reads either format if you need to open one by hand.
+in Firefox and back. **Load library** still reads a plain `.json`
+catalogue as well as a `data.js`, so an older file can be opened by hand.
 
 If a change is ever lost to an accidental reload, the app keeps a draft and
 offers to restore it on the next start.

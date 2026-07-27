@@ -425,11 +425,6 @@ window.library = {
         alert(t('msg.downloaded'));
     },
 
-    /* Plain JSON copy, handy for backups or moving the catalogue elsewhere. */
-    exportJson() {
-        this.download('data.json', JSON.stringify(this.snapshot(), null, 2), 'application/json');
-    },
-
     download(name, contents, type) {
         const url = URL.createObjectURL(new Blob([contents], { type }));
         const link = document.createElement('a');
@@ -847,7 +842,6 @@ function setViewMode(mode) { window.library.setViewMode(mode); }
 function addCategory() { window.library.addCategory(); }
 function restoreDraft() { window.library.restoreDraft(); }
 function discardDraft() { window.library.discardDraft(); }
-function exportJson() { window.library.exportJson(); }
 function grantFolderAccess() { window.library.grantFolderAccess(); }
 function toggleLang() { window.library.setLanguage(getLang() === 'ru' ? 'en' : 'ru'); }
 
