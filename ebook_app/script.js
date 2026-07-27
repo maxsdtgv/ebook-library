@@ -76,8 +76,9 @@ window.library = {
     viewMode: localStorage.getItem(PREF_VIEW_MODE) || 'grid',
     theme: localStorage.getItem(PREF_THEME) || 'light',
 
-    loaded: false,     // has a library file been loaded in this session?
+    loaded: false,     // has a catalogue been loaded in this session?
     dirty: false,      // are there unsaved changes?
+    sourceLabel: '',   // what the header says about where the catalogue came from
 
     // --- startup ----------------------------------------------------------
 
@@ -100,13 +101,20 @@ window.library = {
         // Safety net: if the page was closed or reloaded with unsaved changes,
         // offer to bring them back. This is an EXPLICIT recovery, never a silent
         // cache — the catalogue file stays the source of truth.
+        this.sourceLabel = this.loaded
+            ? `Catalogue loaded automatically — ${this.books.length} book(s).`
+            : 'No catalogue found (ebook_app/data.js) — you can load a file manually:';
+
         const draft = this.readDraft();
         if (draft) {
-            this.showLoadBar(`Unsaved changes from ${draft.savedAt} were found.`, false, 'draft');
-        } else if (this.loaded) {
-            this.showLoadBar(`Catalogue loaded automatically — ${this.books.length} book(s).`, true);
+            // The saved catalogue is what you see; the draft is an older set of
+            // changes that was never written to a file. Say which is which.
+            this.showLoadBar(
+                `Changes you never saved (${draft.savedAt}) are still here. ` +
+                `Showing the saved catalogue — restore them or drop them?`,
+                false, 'draft');
         } else {
-            this.showLoadBar('No catalogue found (ebook_app/data.js) — you can load a file manually:');
+            this.showLoadBar(this.sourceLabel, this.loaded);
         }
     },
 
@@ -174,14 +182,15 @@ window.library = {
         this.loaded = true;
         this.renderAll();
         this.markDirty();          // still unsaved: keep nagging until saved to a file
-        this.showLoadBar(`Restored ${this.books.length} book(s) from unsaved changes — save them to a file!`, true);
+        this.sourceLabel = `Restored ${this.books.length} book(s) from unsaved changes.`;
+        this.showLoadBar(this.sourceLabel, true);
         console.log('Draft restored:', this.books.length, 'books');
     },
 
     discardDraft() {
-        if (!confirm('Discard the unsaved changes for good?')) return;
+        if (!confirm('Drop those unsaved changes and keep the saved catalogue?')) return;
         this.clearDraft();
-        this.showLoadBar('No library loaded — choose your library file (data.json):');
+        this.showLoadBar(this.sourceLabel, this.loaded);
     },
 
     // --- loading ----------------------------------------------------------
@@ -220,7 +229,8 @@ window.library = {
         this.clearDraft();          // the freshly loaded file wins
         this.renderAll();
         this.hideSaveWarning();
-        this.showLoadBar(`Loaded "${file.name}" — ${this.books.length} book(s).`, true);
+        this.sourceLabel = `Loaded "${file.name}" — ${this.books.length} book(s).`;
+        this.showLoadBar(this.sourceLabel, true);
         console.log('Catalogue loaded:', this.books.length, 'books from', file.name);
         return true;
     },
@@ -262,7 +272,8 @@ window.library = {
                 this.dirty = false;
                 this.clearDraft();          // the file is authoritative again
                 this.hideSaveWarning();
-                this.showLoadBar(`Saved to "${handle.name}" — ${this.books.length} book(s).`, true);
+                this.sourceLabel = `Saved to "${handle.name}" — ${this.books.length} book(s).`;
+                this.showLoadBar(this.sourceLabel, true);
                 console.log('Library written via File System Access API');
                 return;
             } catch (error) {
@@ -276,7 +287,8 @@ window.library = {
         this.dirty = false;
         this.clearDraft();
         this.hideSaveWarning();
-        this.showLoadBar(`Saved — ${this.books.length} book(s) downloaded as data.js.`, true);
+        this.sourceLabel = `Saved — ${this.books.length} book(s) downloaded as data.js.`;
+        this.showLoadBar(this.sourceLabel, true);
         alert('data.js was downloaded (check your Downloads folder).\n' +
               'Move it into the ebook_app folder, replacing the old one.');
     },
@@ -298,6 +310,15 @@ window.library = {
     markDirty() {
         this.dirty = true;
         this.writeDraft();          // survive an accidental reload
+
+        // Once you change something, the recovery offer is stale: this very draft
+        // has just replaced the old one, and the "unsaved changes" banner below
+        // now carries that message. Put the source status back in the header so
+        // the two banners never say overlapping things.
+        const bar = document.getElementById('loadBar');
+        if (bar?.classList.contains('draft')) {
+            this.showLoadBar(this.sourceLabel, this.loaded);
+        }
         const warning = document.getElementById('saveWarning');
         if (warning) warning.style.display = 'block';
     },
