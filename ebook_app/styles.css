@@ -645,6 +645,13 @@ nav button:hover {
     color: #1e4d2b;
 }
 
+/* Unsaved changes were found from a previous session. */
+.load-bar.draft {
+    background-color: #fff8e1;
+    border-color: #ffe08a;
+    color: #6b4e00;
+}
+
 .load-bar button {
     padding: 6px 14px;
     background-color: var(--button-bg);

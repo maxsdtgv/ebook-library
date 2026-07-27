@@ -3,16 +3,22 @@
  *
  * DATA MODEL (deliberately simple, after an earlier version tied itself in knots):
  *
- *   The library file (data.json) is the ONE source of truth.
+ *   The catalogue file (ebook_app/data.js) is the ONE source of truth.
  *
- *   - Nothing is loaded automatically. A page opened as file:// cannot fetch a
- *     local file (the browser blocks it) and cannot write one, so the user picks
- *     the library file explicitly with the "Load library" button. The app starts
- *     empty and says so.
+ *   - It is loaded AUTOMATICALLY at startup. A page opened as file:// may not
+ *     fetch() a local file — the browser blocks that — but it may load a <script>,
+ *     so the catalogue is stored as JavaScript:
+ *         window.LIBRARY_DATA = { ...same shape as data.json... };
+ *     index.html includes it before this file, so the library is on screen with
+ *     no clicks at all. If data.js is absent, the app starts empty and offers the
+ *     "Load library" button (which also accepts a plain .json file).
  *   - The library lives in memory while the page is open. Changes mark it dirty
  *     and a banner asks for a save.
- *   - "Save" writes the whole library back to a JSON file (File System Access API
- *     where available, a normal download otherwise).
+ *   - "Save" writes the whole catalogue back to data.js (File System Access API
+ *     where available — straight over the old file — a normal download otherwise).
+ *     Writing cannot happen without a user action: no browser API may touch the
+ *     disk on its own. That single click is the only manual step left.
+ *   - "Export JSON" additionally offers a plain data.json for backups.
  *   - localStorage holds ONLY interface preferences (theme, grid/list). Book data
  *     is never cached there — that is what used to make the file and the browser
  *     disagree about the contents of the library.
@@ -27,6 +33,7 @@
 const DEFAULT_CATEGORIES = ['Fiction', 'Non-Fiction', 'Technical'];
 const PREF_THEME = 'ebooklib.theme';
 const PREF_VIEW_MODE = 'ebooklib.viewMode';
+const DRAFT_KEY = 'ebooklib.draft';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -67,35 +74,35 @@ window.library = {
     init() {
         this.applyTheme();
         this.setViewMode(this.viewMode, { silent: true });
-        this.renderAll();
-        this.showLoadBar('No library loaded — choose your library file (data.json):');
         this.showUserView();
+
+        // Auto-load the catalogue that index.html pulled in as a <script>.
+        const auto = window.LIBRARY_DATA;
+        if (auto && Array.isArray(auto.books)) {
+            this.applyData(auto);
+            this.loaded = true;
+            this.dirty = false;
+            console.log('Catalogue auto-loaded from data.js:', this.books.length, 'books');
+        }
+
+        this.renderAll();
+
+        // Safety net: if the page was closed or reloaded with unsaved changes,
+        // offer to bring them back. This is an EXPLICIT recovery, never a silent
+        // cache — the catalogue file stays the source of truth.
+        const draft = this.readDraft();
+        if (draft) {
+            this.showLoadBar(`Unsaved changes from ${draft.savedAt} were found.`, false, 'draft');
+        } else if (this.loaded) {
+            this.showLoadBar(`Catalogue loaded automatically — ${this.books.length} book(s).`, true);
+        } else {
+            this.showLoadBar('No catalogue found (ebook_app/data.js) — you can load a file manually:');
+        }
     },
 
-    // --- loading ----------------------------------------------------------
-
-    /* Load the library from a File chosen by the user. */
-    async loadFromFile(file) {
-        if (!file) {
-            alert('Choose a library file (data.json) first.');
-            return false;
-        }
-
-        let data;
-        try {
-            data = JSON.parse(await file.text());
-        } catch (error) {
-            console.error('Cannot parse library file:', error);
-            alert('That file is not valid JSON. Pick the library file (data.json).');
-            return false;
-        }
-
-        if (typeof data !== 'object' || data === null || !Array.isArray(data.books)) {
-            alert('That JSON does not look like a library file (no "books" array).');
-            return false;
-        }
-
-        this.books = data.books;
+    /* Copy a catalogue object into the live library. */
+    applyData(data) {
+        this.books = data.books || [];
         this.categories = Array.isArray(data.categories) && data.categories.length
             ? data.categories : [...DEFAULT_CATEGORIES];
         this.favorites = data.favorites || [];
@@ -103,8 +110,8 @@ window.library = {
         this.workBooks = data.workBooks || [];
         this.hobbyBooks = data.hobbyBooks || [];
 
-        // Settings from the file are a starting point; the user's own interface
-        // preference (if any) wins, because it reflects a later explicit choice.
+        // Settings in the file are a starting point; an explicit choice the user
+        // made earlier (stored as a preference) wins.
         if (data.settings?.viewMode && !localStorage.getItem(PREF_VIEW_MODE)) {
             this.setViewMode(data.settings.viewMode, { silent: true });
         }
@@ -112,13 +119,99 @@ window.library = {
             this.theme = data.settings.theme;
             this.applyTheme();
         }
+    },
+
+    // --- unsaved-changes draft -------------------------------------------
+
+    readDraft() {
+        try {
+            const raw = localStorage.getItem(DRAFT_KEY);
+            if (!raw) return null;
+            const draft = JSON.parse(raw);
+            return draft && draft.data ? draft : null;
+        } catch (error) {
+            console.warn('Ignoring unreadable draft:', error);
+            localStorage.removeItem(DRAFT_KEY);
+            return null;
+        }
+    },
+
+    writeDraft() {
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                savedAt: new Date().toLocaleString(),
+                data: this.snapshot()
+            }));
+        } catch (error) {
+            console.warn('Could not store the draft (quota?):', error);
+        }
+    },
+
+    clearDraft() { localStorage.removeItem(DRAFT_KEY); },
+
+    restoreDraft() {
+        const draft = this.readDraft();
+        if (!draft) return;
+
+        const data = draft.data;
+        this.books = data.books || [];
+        this.categories = data.categories?.length ? data.categories : [...DEFAULT_CATEGORIES];
+        this.favorites = data.favorites || [];
+        this.readLater = data.readLater || [];
+        this.workBooks = data.workBooks || [];
+        this.hobbyBooks = data.hobbyBooks || [];
 
         this.loaded = true;
+        this.renderAll();
+        this.markDirty();          // still unsaved: keep nagging until saved to a file
+        this.showLoadBar(`Restored ${this.books.length} book(s) from unsaved changes — save them to a file!`, true);
+        console.log('Draft restored:', this.books.length, 'books');
+    },
+
+    discardDraft() {
+        if (!confirm('Discard the unsaved changes for good?')) return;
+        this.clearDraft();
+        this.showLoadBar('No library loaded — choose your library file (data.json):');
+    },
+
+    // --- loading ----------------------------------------------------------
+
+    /* Load a catalogue from a File the user picked. Accepts either a plain .json
+       file or a data.js wrapper (window.LIBRARY_DATA = {...};). */
+    async loadFromFile(file) {
+        if (!file) {
+            alert('Choose a catalogue file (data.js or data.json) first.');
+            return false;
+        }
+
+        let text = await file.text();
+
+        // Unwrap "window.LIBRARY_DATA = { ... };" if that is what we were given.
+        const wrapper = text.match(/LIBRARY_DATA\s*=\s*([\s\S]*?);?\s*$/);
+        if (wrapper) text = wrapper[1];
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            console.error('Cannot parse catalogue:', error);
+            alert('That file is not a readable catalogue (expected JSON, or a data.js wrapper).');
+            return false;
+        }
+
+        if (typeof data !== 'object' || data === null || !Array.isArray(data.books)) {
+            alert('That file does not look like a catalogue (no "books" array).');
+            return false;
+        }
+
+        this.applyData(data);
+        this.loaded = true;
         this.dirty = false;
+        this.clearDraft();          // the freshly loaded file wins
         this.renderAll();
         this.hideSaveWarning();
         this.showLoadBar(`Loaded "${file.name}" — ${this.books.length} book(s).`, true);
-        console.log('Library loaded:', this.books.length, 'books from', file.name);
+        console.log('Catalogue loaded:', this.books.length, 'books from', file.name);
         return true;
     },
 
@@ -136,21 +229,30 @@ window.library = {
         };
     },
 
+    /* Save the catalogue as ebook_app/data.js so the next page load picks it up
+       automatically. The JS wrapper is what makes auto-loading possible at all on
+       a file:// page (a <script> may be loaded, a fetch() may not). */
     async saveToFile() {
         const json = JSON.stringify(this.snapshot(), null, 2);
+        const contents =
+            '// Electronic Library catalogue. Loaded automatically by index.html.\n' +
+            '// Generated by the app — edit through the UI and press Save.\n' +
+            'window.LIBRARY_DATA = ' + json + ';\n';
 
         // Preferred path: let the user overwrite the real file in place.
         if ('showSaveFilePicker' in window) {
             try {
                 const handle = await window.showSaveFilePicker({
-                    suggestedName: 'data.json',
-                    types: [{ description: 'Library data', accept: { 'application/json': ['.json'] } }]
+                    suggestedName: 'data.js',
+                    types: [{ description: 'Library catalogue', accept: { 'text/javascript': ['.js'] } }]
                 });
                 const writable = await handle.createWritable();
-                await writable.write(json);
+                await writable.write(contents);
                 await writable.close();
                 this.dirty = false;
+                this.clearDraft();          // the file is authoritative again
                 this.hideSaveWarning();
+                this.showLoadBar(`Saved to "${handle.name}" — ${this.books.length} book(s).`, true);
                 console.log('Library written via File System Access API');
                 return;
             } catch (error) {
@@ -160,19 +262,32 @@ window.library = {
         }
 
         // Fallback: a normal download (ends up in the browser's download folder).
-        const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+        this.download('data.js', contents, 'text/javascript');
+        this.dirty = false;
+        this.clearDraft();
+        this.hideSaveWarning();
+        this.showLoadBar(`Saved — ${this.books.length} book(s) downloaded as data.js.`, true);
+        alert('data.js was downloaded (check your Downloads folder).\n' +
+              'Move it into the ebook_app folder, replacing the old one.');
+    },
+
+    /* Plain JSON copy, handy for backups or moving the catalogue elsewhere. */
+    exportJson() {
+        this.download('data.json', JSON.stringify(this.snapshot(), null, 2), 'application/json');
+    },
+
+    download(name, contents, type) {
+        const url = URL.createObjectURL(new Blob([contents], { type }));
         const link = document.createElement('a');
         link.href = url;
-        link.download = 'data.json';
+        link.download = name;
         link.click();
         URL.revokeObjectURL(url);
-        this.dirty = false;
-        this.hideSaveWarning();
-        alert('data.json was downloaded. Move it next to the app, replacing the old one.');
     },
 
     markDirty() {
         this.dirty = true;
+        this.writeDraft();          // survive an accidental reload
         const warning = document.getElementById('saveWarning');
         if (warning) warning.style.display = 'block';
     },
@@ -184,11 +299,21 @@ window.library = {
         if (warning) warning.style.display = 'none';
     },
 
-    showLoadBar(text, loadedOk = false) {
+    /* Update the header bar. `mode` is 'pick' (default) or 'draft', which swaps
+       the file chooser for restore/discard buttons. */
+    showLoadBar(text, loadedOk = false, mode = 'pick') {
         const bar = document.getElementById('loadBar');
         const label = document.getElementById('loadBarText');
+        const pick = document.getElementById('loadBarPick');
+        const draft = document.getElementById('loadBarDraft');
+
         if (label) label.textContent = text;
-        if (bar) bar.classList.toggle('loaded', loadedOk);
+        if (bar) {
+            bar.classList.toggle('loaded', loadedOk);
+            bar.classList.toggle('draft', mode === 'draft');
+        }
+        if (pick) pick.style.display = mode === 'draft' ? 'none' : '';
+        if (draft) draft.style.display = mode === 'draft' ? '' : 'none';
     },
 
     // --- rendering --------------------------------------------------------
@@ -493,6 +618,9 @@ function toggleTheme() { window.library.toggleTheme(); }
 function filterBooks() { window.library.renderBooks(); }
 function setViewMode(mode) { window.library.setViewMode(mode); }
 function addCategory() { window.library.addCategory(); }
+function restoreDraft() { window.library.restoreDraft(); }
+function discardDraft() { window.library.discardDraft(); }
+function exportJson() { window.library.exportJson(); }
 
 document.addEventListener('DOMContentLoaded', () => {
     window.library.init();

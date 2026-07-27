@@ -15,11 +15,18 @@
         </nav>
 
         <!-- Shown until a library file is loaded. The browser cannot open a local
-             file on its own, so the user picks it explicitly. -->
+             file on its own, so the user picks it explicitly. If the previous
+             session ended with unsaved changes, the restore buttons appear instead. -->
         <div id="loadBar" class="load-bar">
-            <span id="loadBarText">No library loaded — choose your library file (data.json):</span>
-            <input type="file" id="libraryFileInput" accept=".json,application/json">
-            <button type="button" onclick="loadLibraryFile()">Load library</button>
+            <span id="loadBarText">Loading catalogue…</span>
+            <span id="loadBarPick">
+                <input type="file" id="libraryFileInput" accept=".json,application/json">
+                <button type="button" onclick="loadLibraryFile()">Load library</button>
+            </span>
+            <span id="loadBarDraft" style="display: none;">
+                <button type="button" onclick="restoreDraft()">Restore them</button>
+                <button type="button" onclick="discardDraft()">Discard</button>
+            </span>
         </div>
 
         <!-- Shown after any change, until the user saves the library back to a file. -->
@@ -98,9 +105,12 @@
 
         <div class="admin-section">
             <h2>Save Library</h2>
-            <button onclick="window.library.saveToFile()">Save to data.json</button>
-            <p><small>Writes the whole library (books, categories, settings) to a
-               JSON file. Keep it next to the app and load it on the next start.</small></p>
+            <button onclick="window.library.saveToFile()">Save catalogue (data.js)</button>
+            <button onclick="exportJson()">Export JSON copy</button>
+            <p><small>Save writes <code>ebook_app/data.js</code>, which the app loads
+               automatically next time — in Chrome/Edge you can overwrite the existing
+               file in place. A browser cannot write to disk on its own, so this click
+               is the one manual step. The JSON copy is just for backups.</small></p>
         </div>
 
         <div class="admin-section">
@@ -109,6 +119,11 @@
         </div>
     </div>
 
+    <!-- The catalogue is loaded as a script, not fetched: a file:// page is not
+         allowed to fetch() local files, but it may load a <script>. This is what
+         makes the library appear automatically, with no clicks. Missing file is
+         harmless — the app then offers the manual "Load library" button. -->
+    <script src="ebook_app/data.js"></script>
     <script src="ebook_app/script.js"></script>
 </body>
 </html>
