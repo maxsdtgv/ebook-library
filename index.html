@@ -11,17 +11,15 @@
         <nav>
             <button onclick="showUserView()" data-i18n="nav.library">Library</button>
             <button onclick="showAdminView()" data-i18n="nav.manage">Manage</button>
-            <button id="folderAccessBtn" onclick="grantFolderAccess()" style="display: none;"
-                    data-i18n="nav.grantFolder" data-i18n-title="nav.grantFolder.title">📁 Grant folder access</button>
             <button id="themeToggle" onclick="toggleTheme()" data-i18n-title="nav.theme.title">🌙</button>
             <button id="langToggle" onclick="toggleLang()" data-i18n-title="nav.lang.title">RU</button>
         </nav>
 
-        <!-- Shown until a library file is loaded. The browser cannot open a local
-             file on its own, so the user picks it explicitly. If the previous
-             session ended with unsaved changes, the restore buttons appear instead. -->
-        <div id="loadBar" class="load-bar">
-            <span id="loadBarText" data-i18n="bar.loading">Loading catalogue…</span>
+        <!-- Hidden while everything is normal. Appears only when the user must
+             act: no catalogue file was found (offers a manual load), or unsaved
+             changes from a previous session are waiting (offers restore/discard). -->
+        <div id="loadBar" class="load-bar" style="display: none;">
+            <span id="loadBarText"></span>
             <span id="loadBarPick">
                 <input type="file" id="libraryFileInput" accept=".json,application/json">
                 <button type="button" onclick="loadLibraryFile()" data-i18n="bar.load">Load library</button>
@@ -77,8 +75,8 @@
     <div id="adminView" class="view">
         <div class="admin-section">
             <h2 data-i18n="manage.addBook">Add Book</h2>
-            <p class="hint" id="folderStatus">Manual mode: copy files into books/ yourself and press Save.</p>
             <p class="hint" data-i18n="manage.addHint"></p>
+            <p class="hint editing-hint" id="editingHint" style="display: none;"></p>
             <form id="addBookForm">
                 <input type="text" id="bookTitle" data-i18n-placeholder="form.title" placeholder="Title" required>
                 <input type="text" id="bookAuthor" data-i18n-placeholder="form.author" placeholder="Author" required>
@@ -91,7 +89,9 @@
                 <select id="bookCategory" required>
                     <option value="" data-i18n="form.selectCategory">Select Category</option>
                 </select>
-                <button type="submit" data-i18n="form.submit">Add Book</button>
+                <button type="submit" id="bookSubmitBtn" data-i18n="form.submit">Add Book</button>
+                <button type="button" id="cancelEditBtn" style="display: none;"
+                        onclick="window.library.cancelEdit()" data-i18n="form.cancelEdit">Cancel editing</button>
             </form>
         </div>
 
@@ -105,7 +105,7 @@
 
         <div class="admin-section">
             <h2 data-i18n="manage.save">Save Library</h2>
-            <button onclick="window.library.saveToFile()" data-i18n="manage.saveCatalogue">Save catalogue (data.js)</button>
+            <button onclick="window.library.saveToFile()" data-i18n="manage.saveCatalogue">Save library</button>
             <p><small data-i18n="manage.saveHint"></small></p>
         </div>
 
@@ -115,12 +115,26 @@
         </div>
     </div>
 
+    <!-- In-app reader: an overlay with the file in an iframe. Closes on the ✕,
+         on a click outside the window, or on Escape. -->
+    <div id="readerOverlay" class="reader-overlay" style="display: none;"
+         onclick="if (event.target === this) window.library.closeReader()">
+        <div class="reader-window">
+            <div class="reader-header">
+                <span id="readerTitle"></span>
+                <button class="reader-close" onclick="window.library.closeReader()"
+                        data-i18n-title="viewer.close">✕</button>
+            </div>
+            <div id="readerBody" class="reader-body"></div>
+        </div>
+    </div>
+
     <!-- The catalogue is loaded as a script, not fetched: a file:// page is not
          allowed to fetch() local files, but it may load a <script>. This is what
          makes the library appear automatically, with no clicks. Missing file is
          harmless — the app then offers the manual "Load library" button. -->
     <script src="ebook_app/i18n.js"></script>
-    <script src="ebook_app/data.js"></script>
+    <script src="data.js"></script>
     <script src="ebook_app/script.js"></script>
 </body>
 </html>

@@ -25,6 +25,30 @@ window.LIBRARY_DATA = {
       "filePath": "books/sample-handbook.txt",
       "thumbnail": "thumbnails/sample-handbook.svg",
       "dateAdded": "2026-07-27"
+    },
+    {
+      "id": "1785768405728",
+      "title": "Персональный аналоговый компьютер",
+      "author": "Алексаков Г.Н.",
+      "year": "1992",
+      "description": "descr1",
+      "category": "Technical",
+      "fileName": "Алексаков Г.Н. и др. - Персональный аналоговый компьютер - 1992.djvu",
+      "filePath": "books/Алексаков Г.Н. и др. - Персональный аналоговый компьютер - 1992.djvu",
+      "thumbnail": "thumbnails/270381159.0.jpg",
+      "dateAdded": "2026-08-03"
+    },
+    {
+      "id": "1785774844905",
+      "title": "Book 1_11",
+      "author": "autor1",
+      "year": "1650",
+      "description": "",
+      "category": "Non-Fiction",
+      "fileName": "chesnokov_va_i_dr_vyrashchivanie_rastenii_bez_pochvy.pdf",
+      "filePath": "books/chesnokov_va_i_dr_vyrashchivanie_rastenii_bez_pochvy.pdf",
+      "thumbnail": "thumbnails/rastenia_bez_pochvi.png",
+      "dateAdded": "2026-08-03"
     }
   ],
   "categories": [
@@ -40,6 +64,6 @@ window.LIBRARY_DATA = {
   "hobbyBooks": [],
   "settings": {
     "viewMode": "grid",
-    "theme": "light"
+    "theme": "dark"
   }
 };

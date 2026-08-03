@@ -114,6 +114,9 @@ nav button:hover {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     transition: transform 0.2s, background-color 0.3s;
     position: relative;
+    /* Long unbroken strings (file names, URLs) must wrap, not spill out. */
+    overflow-wrap: break-word;
+    min-width: 0;
 }
 
 .favorite-btn {
@@ -301,6 +304,10 @@ nav button:hover {
     align-items: center;
     padding: 0.5rem;
     background: #ecf0f1;
+    /* The chip keeps its light background in both themes, so the text must be
+       explicitly dark — inheriting the dark theme's light-gray text made the
+       names unreadable. */
+    color: #2c3e50;
     margin-bottom: 0.5rem;
     border-radius: 4px;
 }
@@ -589,6 +596,8 @@ nav button:hover {
     padding: 0 10px;
     font-size: 12px;
     color: #666;
+    min-width: 0;
+    overflow-wrap: break-word;   /* long file names wrap instead of overflowing */
 }
 /* Save warning message */
 .save-warning {
@@ -732,6 +741,36 @@ nav button:hover {
     word-break: break-word;
 }
 
+/* Edit + Delete stacked beside each book row. */
+.admin-book-actions {
+    flex: 0 0 auto;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.admin-book-actions button {
+    width: 100%;
+}
+
+.edit-btn {
+    background: var(--button-bg);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.edit-btn:hover { background: var(--button-hover); }
+
+/* Shown above the form while a book is being edited. */
+.editing-hint {
+    font-weight: bold;
+    color: var(--button-bg);
+}
+
 .admin-book-item .delete-btn {
     flex: 0 0 auto;
     align-self: center;
@@ -788,3 +827,102 @@ nav button:hover {
     padding: 0 2px;
     font-size: 15px;
 }
+
+/* ---- In-app reader --------------------------------------------------------
+   A full-screen overlay with the book in an iframe. The browser renders pdf,
+   txt and images by itself; anything else gets a message with a download
+   button instead (see readBook in script.js). */
+.reader-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.65);
+    padding: 20px;
+}
+
+.reader-window {
+    display: flex;
+    flex-direction: column;
+    width: min(1100px, 100%);
+    height: 100%;
+    background: var(--card-bg);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.reader-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 16px;
+    background: var(--header-bg);
+    color: var(--header-text);
+}
+
+.reader-header span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: bold;
+}
+
+.reader-close {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--header-text);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.reader-close:hover { background: rgba(255, 255, 255, 0.15); }
+
+.reader-body {
+    flex: 1;
+    min-height: 0;
+    background: var(--bg-color);
+}
+
+.reader-frame {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: white;   /* txt files come with no background of their own */
+}
+
+/* Container the DjVu.js viewer widget renders itself into. */
+.reader-djvu {
+    width: 100%;
+    height: 100%;
+}
+
+.reader-unsupported {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    height: 100%;
+    padding: 30px;
+    text-align: center;
+    color: var(--text-color);
+}
+
+.reader-unsupported button {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 4px;
+    background: var(--button-bg);
+    color: white;
+    cursor: pointer;
+}
+
+.reader-unsupported button:hover { background: var(--button-hover); }

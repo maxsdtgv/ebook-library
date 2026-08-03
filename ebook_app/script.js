@@ -3,7 +3,7 @@
  *
  * DATA MODEL (deliberately simple, after an earlier version tied itself in knots):
  *
- *   The catalogue file (ebook_app/data.js) is the ONE source of truth.
+ *   The catalogue file (data.js, next to index.html) is the ONE source of truth.
  *
  *   - It is loaded AUTOMATICALLY at startup. A page opened as file:// may not
  *     fetch() a local file — the browser blocks that — but it may load a <script>,
@@ -14,11 +14,11 @@
  *     "Load library" button (which also accepts a plain .json file).
  *   - The library lives in memory while the page is open. Changes mark it dirty
  *     and a banner asks for a save.
- *   - "Save" writes the whole catalogue back to data.js (File System Access API
- *     where available — straight over the old file — a normal download otherwise).
- *     Writing cannot happen without a user action: no browser API may touch the
- *     disk on its own. That single click is the only manual step left.
- *   - "Export JSON" additionally offers a plain data.json for backups.
+ *   - "Save" opens an ordinary save dialog for data.js (a browser may not write
+ *     to disk unprompted). In Chrome/Edge the dialog remembers its directory, so
+ *     after the first save it points straight at the library folder and offers
+ *     to replace the old file. Elsewhere the file is downloaded — move it next
+ *     to index.html by hand.
  *   - localStorage holds ONLY interface preferences (theme, grid/list). Book data
  *     is never cached there — that is what used to make the file and the browser
  *     disagree about the contents of the library.
@@ -78,7 +78,6 @@ window.library = {
 
     loaded: false,     // has a catalogue been loaded in this session?
     dirty: false,      // are there unsaved changes?
-    sourceLabel: '',   // what the header says about where the catalogue came from
 
     // --- startup ----------------------------------------------------------
 
@@ -87,7 +86,6 @@ window.library = {
         this.applyTheme();
         this.setViewMode(this.viewMode, { silent: true });
         this.showUserView();
-        this.updateFolderUi();
 
         // Auto-load the catalogue that index.html pulled in as a <script>.
         const auto = window.LIBRARY_DATA;
@@ -100,20 +98,17 @@ window.library = {
 
         this.renderAll();
 
-        // Safety net: if the page was closed or reloaded with unsaved changes,
-        // offer to bring them back. This is an EXPLICIT recovery, never a silent
-        // cache — the catalogue file stays the source of truth.
-        this.sourceLabel = this.loaded
-            ? t('bar.autoLoaded', { count: this.books.length })
-            : t('bar.noCatalogue');
-
+        // The header stays quiet when everything is normal. A banner appears
+        // only when something needs the user: no catalogue at all, or unsaved
+        // changes from a previous session (an EXPLICIT recovery, never a silent
+        // cache — the catalogue file stays the source of truth).
         const draft = this.readDraft();
         if (draft) {
-            // The saved catalogue is what you see; the draft is an older set of
-            // changes that was never written to a file. Say which is which.
             this.showLoadBar(t('bar.draftFound', { when: draft.savedAt }), false, 'draft');
+        } else if (!this.loaded) {
+            this.showLoadBar(t('bar.noCatalogue'), false);
         } else {
-            this.showLoadBar(this.sourceLabel, this.loaded);
+            this.hideLoadBar();
         }
     },
 
@@ -138,127 +133,9 @@ window.library = {
         }
     },
 
-    // --- optional folder access (Chrome/Edge) -----------------------------
-    /*
-     * With a directory handle for the library folder the app can do the two
-     * things a plain page cannot: copy a chosen ebook into books/ itself, and
-     * write data.js without a save dialog. Everything here is additive — without
-     * a handle (Firefox, Safari, or permission not granted) the app behaves
-     * exactly as before: you copy files yourself and press Save.
-     */
-    folderHandle: null,
-
-    get folderApiAvailable() { return 'showDirectoryPicker' in window; },
-    get folderReady() { return !!this.folderHandle; },
-
-    async grantFolderAccess() {
-        if (!this.folderApiAvailable) {
-            alert(t('msg.noFolderApi'));
-            return false;
-        }
-        try {
-            const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-
-            // A quick sanity check that this really is the library folder.
-            try {
-                await handle.getDirectoryHandle('ebook_app');
-            } catch {
-                if (!confirm(t('msg.wrongFolder'))) {
-                    return false;
-                }
-            }
-
-            this.folderHandle = handle;
-            this.updateFolderUi();
-            console.log('Folder access granted:', handle.name);
-
-            // If work is already waiting to be saved, put it on disk right away.
-            if (this.dirty) await this.autoSave();
-            return true;
-        } catch (error) {
-            if (error.name === 'AbortError') return false;      // dialog dismissed
-
-            // Chrome blocks a handful of well-known directories (home itself,
-            // Desktop, Documents, Downloads, ~/.config …) and reports it as
-            // "contains system files", which sends people looking in the wrong
-            // place. Say what actually needs doing.
-            console.error('Folder access failed:', error);
-            alert(t('msg.folderBlocked'));
-            return false;
-        }
-    },
-
-    /* Make sure we may still write; Chrome can drop the grant between sessions. */
-    async ensureFolderWritable() {
-        if (!this.folderHandle) return false;
-        const opts = { mode: 'readwrite' };
-        if (await this.folderHandle.queryPermission(opts) === 'granted') return true;
-        return await this.folderHandle.requestPermission(opts) === 'granted';
-    },
-
-    /* Write `contents` to <folder>/<...path>/<name>, creating folders as needed. */
-    async writeInto(path, name, contents) {
-        let dir = this.folderHandle;
-        for (const part of path) dir = await dir.getDirectoryHandle(part, { create: true });
-        const fileHandle = await dir.getFileHandle(name, { create: true });
-        const writable = await fileHandle.createWritable();
-        await writable.write(contents);
-        await writable.close();
-    },
-
-    /* Copy a File the user picked into books/ or thumbnails/. Returns its name. */
-    async copyIntoLibrary(file, folder) {
-        await this.writeInto([folder], file.name, file);
-        console.log(`Copied "${file.name}" into ${folder}/`);
-        return file.name;
-    },
-
-    /* Silent save straight to ebook_app/data.js. Returns true if it happened. */
-    async autoSave() {
-        if (!this.folderHandle) return false;
-        if (!await this.ensureFolderWritable()) {
-            this.folderHandle = null;
-            this.updateFolderUi();
-            return false;
-        }
-        await this.writeInto(['ebook_app'], 'data.js', this.catalogueSource());
-        this.dirty = false;
-        this.clearDraft();
-        this.hideSaveWarning();
-        this.sourceLabel = t('bar.savedAuto', { count: this.books.length });
-        this.showLoadBar(this.sourceLabel, true);
-        return true;
-    },
-
-    /* Record a change: keep the recovery draft, then either save it to disk at
-       once (folder access) or ask the user to save (manual mode). */
-    async persist() {
+    /* Record a change: keep the recovery draft and ask the user to save. */
+    persist() {
         this.markDirty();
-        if (!this.folderHandle) return;
-        try {
-            await this.autoSave();
-        } catch (error) {
-            console.error('Automatic save failed:', error);
-            alert(t('msg.autoSaveFailed', { error: error.message }));
-        }
-    },
-
-    updateFolderUi() {
-        const btn = document.getElementById('folderAccessBtn');
-        const status = document.getElementById('folderStatus');
-
-        if (btn) {
-            btn.style.display = this.folderApiAvailable && !this.folderReady ? '' : 'none';
-        }
-        if (status) {
-            if (this.folderReady) {
-                status.textContent = t('manage.mode.folder', { name: this.folderHandle.name });
-            } else if (this.folderApiAvailable) {
-                status.textContent = t('manage.mode.manual');
-            } else {
-                status.textContent = t('manage.mode.manualOnly');
-            }
-        }
     },
 
     readDraft() {
@@ -302,15 +179,18 @@ window.library = {
         this.loaded = true;
         this.renderAll();
         this.markDirty();          // still unsaved: keep nagging until saved to a file
-        this.sourceLabel = t('bar.draftRestored', { count: this.books.length });
-        this.showLoadBar(this.sourceLabel, true);
+        this.hideLoadBar();
         console.log('Draft restored:', this.books.length, 'books');
     },
 
     discardDraft() {
         if (!confirm(t('msg.dropDraft'))) return;
         this.clearDraft();
-        this.showLoadBar(this.sourceLabel, this.loaded);
+        if (this.loaded) {
+            this.hideLoadBar();
+        } else {
+            this.showLoadBar(t('bar.noCatalogue'), false);
+        }
     },
 
     // --- loading ----------------------------------------------------------
@@ -349,8 +229,7 @@ window.library = {
         this.clearDraft();          // the freshly loaded file wins
         this.renderAll();
         this.hideSaveWarning();
-        this.sourceLabel = t('bar.loadedFile', { name: file.name, count: this.books.length });
-        this.showLoadBar(this.sourceLabel, true);
+        this.hideLoadBar();
         console.log('Catalogue loaded:', this.books.length, 'books from', file.name);
         return true;
     },
@@ -369,59 +248,49 @@ window.library = {
         };
     },
 
-    /* The exact text of ebook_app/data.js — used by both the manual save and the
-       automatic one, so the two can never drift apart. */
+    /* The exact text of data.js — kept in one place so the saved file and the
+       downloaded fallback can never drift apart. */
     catalogueSource() {
         return '// Electronic Library catalogue. Loaded automatically by index.html.\n' +
                '// Generated by the app — edit through the UI and press Save.\n' +
                'window.LIBRARY_DATA = ' + JSON.stringify(this.snapshot(), null, 2) + ';\n';
     },
 
-    /* Save the catalogue as ebook_app/data.js so the next page load picks it up
-       automatically. The JS wrapper is what makes auto-loading possible at all on
-       a file:// page (a <script> may be loaded, a fetch() may not). */
+    /* Save the catalogue as data.js (next to index.html) so the next page load
+       picks it up automatically. Always through an explicit dialog:
+       - Chrome/Edge: a save dialog that remembers its directory (`id`), so after
+         the first save it opens right in the library folder and offers to
+         replace the old data.js.
+       - Firefox/Safari: no such API — the file is downloaded instead. */
     async saveToFile() {
-        // With folder access this needs no dialog at all.
-        if (this.folderHandle) {
-            try {
-                if (await this.autoSave()) return;
-            } catch (error) {
-                console.error('Automatic save failed, falling back to a dialog:', error);
-            }
-        }
-
-        const contents = this.catalogueSource();
-
-        // Preferred path: let the user overwrite the real file in place.
         if ('showSaveFilePicker' in window) {
             try {
                 const handle = await window.showSaveFilePicker({
+                    id: 'ebooklib-datajs',
                     suggestedName: 'data.js',
                     types: [{ description: 'Library catalogue', accept: { 'text/javascript': ['.js'] } }]
                 });
                 const writable = await handle.createWritable();
-                await writable.write(contents);
+                await writable.write(this.catalogueSource());
                 await writable.close();
                 this.dirty = false;
                 this.clearDraft();          // the file is authoritative again
                 this.hideSaveWarning();
-                this.sourceLabel = t('bar.savedTo', { name: handle.name, count: this.books.length });
-                this.showLoadBar(this.sourceLabel, true);
-                console.log('Library written via File System Access API');
+                this.hideLoadBar();
+                console.log('Catalogue written via the save dialog:', handle.name);
                 return;
             } catch (error) {
                 if (error.name === 'AbortError') return;   // user cancelled
-                console.warn('File System Access API failed, falling back to download:', error);
+                console.warn('Save dialog failed, falling back to download:', error);
             }
         }
 
-        // Fallback: a normal download (ends up in the browser's download folder).
-        this.download('data.js', contents, 'text/javascript');
+        // No File System Access API (Firefox, Safari): a normal download.
+        this.download('data.js', this.catalogueSource(), 'text/javascript');
         this.dirty = false;
         this.clearDraft();
         this.hideSaveWarning();
-        this.sourceLabel = t('bar.savedDownload', { count: this.books.length });
-        this.showLoadBar(this.sourceLabel, true);
+        this.hideLoadBar();
         alert(t('msg.downloaded'));
     },
 
@@ -440,11 +309,14 @@ window.library = {
 
         // Once you change something, the recovery offer is stale: this very draft
         // has just replaced the old one, and the "unsaved changes" banner below
-        // now carries that message. Put the source status back in the header so
-        // the two banners never say overlapping things.
+        // now carries that message.
         const bar = document.getElementById('loadBar');
         if (bar?.classList.contains('draft')) {
-            this.showLoadBar(this.sourceLabel, this.loaded);
+            if (this.loaded) {
+                this.hideLoadBar();
+            } else {
+                this.showLoadBar(t('bar.noCatalogue'), false);
+            }
         }
         const warning = document.getElementById('saveWarning');
         if (warning) warning.style.display = 'block';
@@ -458,7 +330,8 @@ window.library = {
     },
 
     /* Update the header bar. `mode` is 'pick' (default) or 'draft', which swaps
-       the file chooser for restore/discard buttons. */
+       the file chooser for restore/discard buttons. Normally the bar is hidden
+       entirely — it appears only when the user has to act. */
     showLoadBar(text, loadedOk = false, mode = 'pick') {
         const bar = document.getElementById('loadBar');
         const label = document.getElementById('loadBarText');
@@ -467,11 +340,17 @@ window.library = {
 
         if (label) label.textContent = text;
         if (bar) {
+            bar.style.display = '';
             bar.classList.toggle('loaded', loadedOk);
             bar.classList.toggle('draft', mode === 'draft');
         }
         if (pick) pick.style.display = mode === 'draft' ? 'none' : '';
         if (draft) draft.style.display = mode === 'draft' ? '' : 'none';
+    },
+
+    hideLoadBar() {
+        const bar = document.getElementById('loadBar');
+        if (bar) bar.style.display = 'none';
     },
 
     // --- rendering --------------------------------------------------------
@@ -543,7 +422,7 @@ window.library = {
                     <div class="book-thumbnail-col">${cover(book, 60, 80)}</div>
                     <div class="book-actions-col">
                         <button onclick="window.library.downloadBook('${esc(book.filePath)}')">${t('card.download')}</button>
-                        <button onclick="window.library.readBook('${esc(book.filePath)}')">${t('card.read')}</button>
+                        <button onclick="window.library.readBook('${esc(book.filePath)}', '${esc(book.title)}')">${t('card.read')}</button>
                         ${tags(book, 'inline')}
                     </div>
                     <div class="book-info-col">
@@ -565,7 +444,7 @@ window.library = {
                     ${tags(book, 'grid')}
                     <div class="book-actions">
                         <button onclick="window.library.downloadBook('${esc(book.filePath)}')">${t('card.download')}</button>
-                        <button onclick="window.library.readBook('${esc(book.filePath)}')">${t('card.read')}</button>
+                        <button onclick="window.library.readBook('${esc(book.filePath)}', '${esc(book.title)}')">${t('card.read')}</button>
                     </div>
                 </div>`).join('');
         }
@@ -652,9 +531,15 @@ window.library = {
                      }${book.year ? t('admin.metaYear', { year: esc(book.year) }) : ''}</p>
                 <p>${t('admin.file', { path: esc(book.filePath) })}</p>
                 </div>
-                <button class="delete-btn" data-book-id="${esc(book.id)}">${t('manage.delete')}</button>
+                <div class="admin-book-actions">
+                    <button class="edit-btn" data-book-id="${esc(book.id)}">${t('manage.edit')}</button>
+                    <button class="delete-btn" data-book-id="${esc(book.id)}">${t('manage.delete')}</button>
+                </div>
             </div>`).join('');
 
+        list.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => this.editBook(e.target.dataset.bookId));
+        });
         list.querySelectorAll('.delete-btn').forEach(btn => {
             btn.addEventListener('click', (e) => this.deleteBook(e.target.dataset.bookId));
         });
@@ -662,9 +547,14 @@ window.library = {
 
     // --- books ------------------------------------------------------------
 
+    /* Id of the book currently being edited in the Add Book form, or null when
+       the form adds a new one. */
+    editingId: null,
+
     /* Read the Add Book form. Fields are read by id: the inputs have no "name"
        attributes, so FormData (used by an earlier version) returned nothing and
-       every book was stored as "Untitled / Unknown / unknown.pdf". */
+       every book was stored as "Untitled / Unknown / unknown.pdf".
+       The same form both adds and edits: see editBook(). */
     async addBook(event) {
         if (event) event.preventDefault();
 
@@ -677,51 +567,115 @@ window.library = {
         const bookFile = picked('bookFile');
         const thumbFile = picked('thumbnailFile');
 
+        const editing = this.editingId
+            ? this.books.find(b => String(b.id) === String(this.editingId))
+            : null;
+
         if (!title || !author) { alert(t('msg.needTitleAuthor')); return; }
         if (!category) { alert(t('msg.needCategory')); return; }
-        if (!bookFile) { alert(t('msg.needBookFile')); return; }
+        if (!bookFile && !editing) { alert(t('msg.needBookFile')); return; }
 
-        const fileName = bookFile.name;
-        const thumbName = thumbFile ? thumbFile.name : '';
+        // Only the file NAME is recorded: the app cannot copy files around, so
+        // the ebook must already sit in books/ (and its cover in thumbnails/).
 
-        // With folder access the app copies the files where they belong, so you
-        // can pick them from anywhere on the disk. Without it, they must already
-        // sit in books/ and thumbnails/ — only the names are recorded.
-        if (this.folderHandle) {
-            try {
-                if (!await this.ensureFolderWritable()) throw new Error('write permission was refused');
-                await this.copyIntoLibrary(bookFile, 'books');
-                if (thumbFile) await this.copyIntoLibrary(thumbFile, 'thumbnails');
-            } catch (error) {
-                console.error('Copying the files failed:', error);
-                alert(t('msg.copyFailed', { error: error.message }));
-                return;
+        if (editing) {
+            Object.assign(editing, {
+                title, author, category,
+                year: value('bookYear'),
+                description: value('bookDescription')
+            });
+            // Files are replaced only if a new one was actually picked.
+            if (bookFile) {
+                editing.fileName = bookFile.name;
+                editing.filePath = `books/${bookFile.name}`;
             }
+            if (thumbFile) editing.thumbnail = `thumbnails/${thumbFile.name}`;
+            console.log('Book updated:', title);
+        } else {
+            this.books.push({
+                id: String(Date.now()),
+                title, author,
+                year: value('bookYear'),
+                description: value('bookDescription'),
+                category,
+                fileName: bookFile.name,
+                filePath: `books/${bookFile.name}`,
+                thumbnail: thumbFile ? `thumbnails/${thumbFile.name}` : '',
+                dateAdded: new Date().toISOString().slice(0, 10)
+            });
+            console.log('Book added:', title);
         }
 
-        this.books.push({
-            id: String(Date.now()),
-            title, author,
-            year: value('bookYear'),
-            description: value('bookDescription'),
-            category,
-            fileName,
-            filePath: `books/${fileName}`,
-            thumbnail: thumbName ? `thumbnails/${thumbName}` : '',
-            dateAdded: new Date().toISOString().slice(0, 10)
-        });
-
-        document.getElementById('addBookForm')?.reset();
+        this.stopEditing();              // also resets the form
         this.loaded = true;              // there is something to save now
         this.renderAll();
         await this.persist();
-        console.log('Book added:', title);
+    },
+
+    /* Put a book into the Add Book form and switch it to editing mode. */
+    editBook(id) {
+        const book = this.books.find(b => String(b.id) === String(id));
+        if (!book) return;
+
+        this.editingId = String(id);
+
+        const set = (fid, v) => {
+            const el = document.getElementById(fid);
+            if (el) el.value = v ?? '';
+        };
+        set('bookTitle', book.title);
+        set('bookAuthor', book.author);
+        set('bookYear', book.year);
+        set('bookDescription', book.description);
+        set('bookCategory', book.category);
+
+        // In editing mode the file is optional — empty means "keep the old one".
+        document.getElementById('bookFile')?.removeAttribute('required');
+
+        this.refreshEditUi();
+        document.getElementById('addBookForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+
+    cancelEdit() {
+        this.stopEditing();
+    },
+
+    /* Leave editing mode and put the form back into its "add" state. */
+    stopEditing() {
+        this.editingId = null;
+        document.getElementById('addBookForm')?.reset();
+        document.getElementById('bookFile')?.setAttribute('required', '');
+        this.refreshEditUi();
+    },
+
+    /* Submit button text, cancel button and the "editing…" hint all follow
+       editingId. Called on enter/leave and after a language switch. */
+    refreshEditUi() {
+        const editing = this.editingId
+            ? this.books.find(b => String(b.id) === String(this.editingId))
+            : null;
+
+        const submit = document.getElementById('bookSubmitBtn');
+        if (submit) submit.textContent = editing ? t('form.submitEdit') : t('form.submit');
+
+        const cancel = document.getElementById('cancelEditBtn');
+        if (cancel) cancel.style.display = editing ? '' : 'none';
+
+        const hint = document.getElementById('editingHint');
+        if (hint) {
+            hint.style.display = editing ? '' : 'none';
+            hint.textContent = editing
+                ? t('manage.editingHint', { title: editing.title, file: editing.filePath })
+                : '';
+        }
     },
 
     deleteBook(id) {
         const book = this.books.find(b => String(b.id) === String(id));
         if (!book) return;
         if (!confirm(t('msg.deleteBook', { title: book.title }))) return;
+
+        if (String(id) === String(this.editingId)) this.stopEditing();
 
         this.books = this.books.filter(b => String(b.id) !== String(id));
         ['favorites', 'readLater', 'workBooks', 'hobbyBooks'].forEach(key => {
@@ -733,14 +687,142 @@ window.library = {
         console.log('Book deleted:', book.title);
     },
 
-    downloadBook(filePath) {
+    /* Force a real download, never a preview. On http(s) the file is fetched
+       into a blob first — a blob link always downloads. A file:// page cannot
+       fetch local files, so there the download attribute has to do the job. */
+    async downloadBook(filePath) {
+        const name = filePath.split('/').pop();
+        if (location.protocol !== 'file:') {
+            try {
+                const response = await fetch(filePath);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const url = URL.createObjectURL(await response.blob());
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = name;
+                link.click();
+                URL.revokeObjectURL(url);
+                return;
+            } catch (error) {
+                console.warn('Blob download failed, using a plain link:', error);
+            }
+        }
         const link = document.createElement('a');
         link.href = filePath;
-        link.download = filePath.split('/').pop();
+        link.download = name;
         link.click();
     },
 
-    readBook(filePath) { window.open(filePath, '_blank'); },
+    // --- built-in reader ---------------------------------------------------
+
+    /* Formats a browser can render by itself — these open in the overlay. */
+    VIEWABLE_TYPES: ['pdf', 'txt', 'html', 'htm', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'],
+
+    /* Open the book in the in-app viewer. The browser renders pdf/txt/images
+       itself; djvu goes through the bundled DjVu.js viewer; anything else
+       (epub, doc…) gets a message with a download button instead. */
+    readBook(filePath, title) {
+        const overlay = document.getElementById('readerOverlay');
+        const body = document.getElementById('readerBody');
+        const heading = document.getElementById('readerTitle');
+        if (!overlay || !body) return;
+
+        const ext = fileExtension(filePath);
+        if (heading) heading.textContent = title || filePath.split('/').pop();
+
+        if (this.VIEWABLE_TYPES.includes(ext)) {
+            body.innerHTML = `<iframe class="reader-frame" src="${esc(filePath)}" title="${esc(title || '')}"></iframe>`;
+        } else if (ext === 'djvu') {
+            body.innerHTML = '<div id="djvuContainer" class="reader-djvu"></div>';
+            this.openDjvu(filePath, title);            // async; shows fallback on failure
+        } else {
+            body.innerHTML = this.readerFallbackHtml(filePath, ext);
+        }
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';   // page behind must not scroll
+    },
+
+    /* The "browser cannot show this" message with download / new tab buttons. */
+    readerFallbackHtml(filePath, ext) {
+        return `
+            <div class="reader-unsupported">
+                <p>${t('viewer.cantPreview', { ext: esc(ext || '?') })}</p>
+                <button onclick="window.library.downloadBook('${esc(filePath)}')">${t('card.download')}</button>
+                <button onclick="window.open('${esc(filePath)}', '_blank')">${t('viewer.openTab')}</button>
+            </div>`;
+    },
+
+    // --- DjVu support (bundled DjVu.js, https://djvu.js.org) ----------------
+    /*
+     * The two vendor scripts total ~1 MB, so they are loaded lazily, the first
+     * time a .djvu book is opened. NOTE: DjVu.js needs a Web Worker and fetches
+     * the file over XHR — both are blocked on a file:// page, so inline DjVu
+     * reading works when the library is served over http(s) (any static server
+     * does, e.g. `python3 -m http.server`). On file:// the viewer fails fast
+     * and the message with a download button appears instead.
+     */
+    djvuViewer: null,
+
+    loadScript(src) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(script);
+        });
+    },
+
+    async ensureDjvuViewer() {
+        if (window.DjVu?.Viewer) return;
+        await this.loadScript('ebook_app/vendor/djvu.js');
+        await this.loadScript('ebook_app/vendor/djvu_viewer.js');
+    },
+
+    async openDjvu(filePath, title) {
+        const container = document.getElementById('djvuContainer');
+        if (!container) return;
+        const name = title || filePath.split('/').pop();
+        try {
+            await this.ensureDjvuViewer();
+
+            // Fetch the file ourselves and hand the viewer the bytes, not the
+            // path: new URL() percent-encodes Cyrillic and spaces in file names
+            // properly, and any load problem surfaces here as a catchable error
+            // instead of the viewer's own "network error" screen.
+            const url = new URL(filePath, location.href).href;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+            const buffer = await response.arrayBuffer();
+
+            this.djvuViewer = new DjVu.Viewer();
+            this.djvuViewer.render(container);
+            this.djvuViewer.loadDocument(buffer, name, {
+                name,
+                language: getLang(),
+                theme: this.theme,
+                uiOptions: {
+                    hideFullPageSwitch: true,       // the overlay is the full page
+                    hideOpenAndCloseButtons: true,  // the catalogue picks the book
+                    hidePrintButton: true
+                }
+            });
+        } catch (error) {
+            console.error('DjVu viewer failed (file:// page? see the comment above):', error);
+            this.djvuViewer = null;
+            const body = document.getElementById('readerBody');
+            if (body) body.innerHTML = this.readerFallbackHtml(filePath, 'djvu');
+        }
+    },
+
+    closeReader() {
+        const overlay = document.getElementById('readerOverlay');
+        const body = document.getElementById('readerBody');
+        if (overlay) overlay.style.display = 'none';
+        if (body) body.innerHTML = '';             // stop the PDF plugin etc.
+        this.djvuViewer = null;                    // let the DjVu worker be collected
+        document.body.style.overflow = '';
+    },
 
     // --- categories -------------------------------------------------------
 
@@ -804,12 +886,9 @@ window.library = {
        app draws itself is repainted here. */
     setLanguage(lang) {
         setLang(lang);
-        this.sourceLabel = this.loaded
-            ? t('bar.autoLoaded', { count: this.books.length })
-            : t('bar.noCatalogue');
-        this.showLoadBar(this.sourceLabel, this.loaded);
-        this.updateFolderUi();
+        if (!this.loaded) this.showLoadBar(t('bar.noCatalogue'), false);
         this.renderAll();
+        this.refreshEditUi();   // static translation would reset the Save/Add button text
     },
 
     toggleTheme() {
@@ -842,7 +921,6 @@ function setViewMode(mode) { window.library.setViewMode(mode); }
 function addCategory() { window.library.addCategory(); }
 function restoreDraft() { window.library.restoreDraft(); }
 function discardDraft() { window.library.discardDraft(); }
-function grantFolderAccess() { window.library.grantFolderAccess(); }
 function toggleLang() { window.library.setLanguage(getLang() === 'ru' ? 'en' : 'ru'); }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -858,5 +936,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Last-chance reminder if there are unsaved changes.
     window.addEventListener('beforeunload', (e) => {
         if (window.library.dirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // Escape closes the reader overlay.
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') window.library.closeReader();
     });
 });
